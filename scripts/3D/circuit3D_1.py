@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Oct 23 12:24:00 2018
-
-@author: steven
+Test for importing geometry from volmdlr
 """
 
 import hydraulic as hy
@@ -38,5 +36,8 @@ circuit = hy.Circuit3D(points, pipes, water)
 pressure, flows = circuit.Solve(imposed = 'pressure', imposed_values = {points[0]: dP, points[-1]: 0}) 
 
 circuit.Draw(vm.x3D, vm.y3D)
+circuit.Draw(vm.x3D, vm.z3D)
 circuit.DisplaySolution()
 #circuit.DisplaySolution(position = 1)
+
+r = circuit.FreeCADExport()

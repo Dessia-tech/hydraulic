@@ -22,7 +22,8 @@ enl_LD = [30,20,6.5,0]
 ctr_rap = [1,4/3,2,4]
 ctr_LD = [0,6.5,11,15]
 
-from volmdlr import Point2D, Arc2D, LineSegment2D, Point3D, Arc3D, LineSegment3D
+import volmdlr as vm
+import volmdlr.primitives3D as primitives3D
 
 class Circuit:
     """
@@ -44,7 +45,7 @@ class Circuit:
         return(graph)
         
     def AddPoint(self,coordinates):
-        point = Point2D(coordinates)
+        point = vm.Point2D(coordinates)
         self.points.append(point)
         self.graph.add_node(point)
         
@@ -76,7 +77,7 @@ class Circuit:
     
 
         
-    def Solve(self,imposed, imposed_values,low_p=0):
+    def SolveFluidic(self,imposed, imposed_values,low_p=0):
         """
         solves the hydraulic circuit for 
         :param imposed: = "pressure" or "flow"
@@ -267,8 +268,21 @@ class Circuit3D(Circuit):
         fig, ax = plt.subplots()
         ax.set_aspect('equal')
         for pipe in self.pipes:
-            print(pipe)
             pipe.Draw(x3D, y3D, ax)
+            
+    def CADModel(self):
+        pipes_primitives = []
+        for pipe in self.pipes:
+            pipes_primitives.append(pipe.CADVolume())
+        model = vm.VolumeModel([('pipes', pipes_primitives)])
+        return model
+    
+    def FreeCADExport(self, filename = 'An unamed circuit',
+                      python_path='python',
+                      path_lib_freecad='/usr/lib/freecad/lib', 
+                      export_types=['fcstd']):
+        model = self.CADModel()
+        return model.FreeCADExport(filename, python_path, path_lib_freecad, export_types)
 
 
 
@@ -277,12 +291,13 @@ class StraightPipe:
     Abstract Class
     Straight pipes linking 2 points
     """
-    def __init__(self, p1, p2, d):
+    def __init__(self, p1, p2, d, name=''):
         self.points = [p1, p2]
         self.radius = d/2
         self.surf = math.pi*self.radius**2
         self.length = p1.PointDistance(p2)
         self.fQ = 16*self.length/(math.pi*self.radius**4)
+        self.name = name
         
     def __repr__(self):
         return("{}-str-{}".format(self.points[0],self.points[1]))
@@ -299,11 +314,11 @@ class StraightPipe2D:
     """
     Straight pipes linking 2 2D points
     """
-    def __init__(self, p1, p2, d):
-        StraightPipe.__init__(self, p1, p2, d)
+    def __init__(self, p1, p2, d, name=''):
+        StraightPipe.__init__(self, p1, p2, d, name)
 
     def Draw(self, ax):
-        l = LineSegment2D(*self.points)
+        l = vm.LineSegment2D(*self.points)
         l.MPLPlot(ax)
 
         
@@ -311,13 +326,21 @@ class StraightPipe3D:
     """
     Straight pipes linking 2 3D points
     """
-    def __init__(self, p1, p2, d):
-        StraightPipe.__init__(self, p1, p2, d)
+    def __init__(self, p1, p2, d, name=''):
+        StraightPipe.__init__(self, p1, p2, d, name)
 
     def Draw(self, x3D, y3D, ax):
-        l = LineSegment3D(*self.points)
+        l = vm.LineSegment3D(*self.points)
         l.MPLPlot2D(x3D, y3D, ax)    
         
+    def CADVolume(self):
+        axis = self.points[1]-self.points[0]
+        axis.Normalize()
+        return primitives3D.HollowCylinder(0.5 * (self.points[0]+self.points[1]), axis,
+                                           self.radius, self.radius+0.001,
+                                           self.length,
+                                           name=self.name)
+
 class SingularPipe:
     """
     other type of pipes linking 2 points
@@ -342,7 +365,6 @@ class Bend(SingularPipe):
         self.interior_point = interior_point
         self.end_point = end_point
         self.radius = 0.5 * diameter
-#        [self.turn_radius,self.turn_angle,self.center] = ArcParam(p1.vector, p2.vector, coord_p3)
         self.arc = arc
         self.turn_radius = self.arc.radius
         self.turn_angle = self.arc.angle
@@ -364,15 +386,6 @@ class Bend(SingularPipe):
         circle+="Circle({}) = [{},{},{}];\n".format(j,points_index[self.points[0]],n+1,n+2)
         circle+="Circle({}) = [{},{},{}];\n".format(j+1,n+2,n+1,points_index[self.points[1]])
         phys=[j,j+1]
-#        if self.turn_angle<math.pi:
-#            circle+="Circle({}) = [{},{},{}];\n".format(j,points_index[self.points[0]],n+1,points_index[self.points[1]])
-#            phys=[j]
-#        else:
-#            circle+="Point({0}) = [{1[0]},{1[1]},0.,1.];\n".format(n+2,self.third_point)
-#            points_index["intermediate point of {}".format(str(self))]=n+2
-#            circle+="Circle({}) = [{},{},{}];\n".format(j,points_index[self.points[0]],n+1,n+2)
-#            circle+="Circle({}) = [{},{},{}];\n".format(j+1,n+2,n+1,points_index[self.points[1]])
-#            phys=[j,j+1]
         return(circle,phys)
         
 class Bend2D(Bend):
@@ -380,7 +393,7 @@ class Bend2D(Bend):
     Bend between two points, defined by third, interior point
     """
     def __init__(self, start_point, interior_point, end_point, diameter):
-        arc = Arc2D(start_point, interior_point, end_point)
+        arc = vm.Arc2D(start_point, interior_point, end_point)
         Bend.__init__(self, start_point, interior_point, end_point, arc, diameter)
         
     def Draw(self, ax):
@@ -391,11 +404,16 @@ class Bend3D(Bend):
     Bend between two points, defined by third, interior point
     """
     def __init__(self, start_point, interior_point, end_point, diameter):
-        arc = Arc3D(start_point, interior_point, end_point)
+        arc = vm.Arc3D(start_point, interior_point, end_point)
         Bend.__init__(self, start_point, interior_point, end_point, arc, diameter)
 
     def Draw(self, x3D, y3D, ax):
         self.arc.MPLPlot2D(x3D, y3D, ax)    
+
+    def CADVolume(self):
+        normal_section = (self.arc.start-self.arc.center).Cross(self.arc.normal)
+        section = vm.Contour3D([vm.Circle3D(self.arc.start, self.radius+0.001, normal_section)])
+        return primitives3D.Sweep(section, vm.Wire3D([self.arc]))
 
 
 class MitterBend(SingularPipe):
@@ -423,10 +441,6 @@ class Enlargement(SingularPipe):
     """
     def __init__(self,p1,p2,d1,d2,angle=None):
         SingularPipe.__init__(self, p1, p2, 'enl')
-        if angle :
-            s_angle = math.sin(angle)
-        else :
-            s_angle = 0
         self.radius=d1/2
         self.surf=math.pi*(d1/2)**2
         self.length = p1.PointDistance(p2)
@@ -444,11 +458,6 @@ class Contraction(SingularPipe):
     """
     def __init__(self,p1,p2,d1,d2,angle=None):
         SingularPipe.__init__(self,p1,p2,'ctr')
-     
-        if angle :
-            s_angle=math.sin(angle)
-        else :
-            s_angle=0
         self.radius=d1/2
         self.surf=math.pi*(d1/2)**2
         self.length= p1.PointDistance(p2)
@@ -497,15 +506,15 @@ class JunctionPipe:
         return("{}-jun-{}".format(self.points[0],self.points[1]))
         
     def Draw(self, ax):
-        LineSegment2D(*self.points).MPLPlot(ax)
+        vm.LineSegment2D(*self.points).MPLPlot(ax)
         
     def Repr1D(self,j,points_index):
         # returns the 1D representation of the pipe for gmsh
         line="Line({}) = [{},{}];\n".format(j,points_index[self.points[0]],points_index[self.points[1]])
         return(line,[j])
  
-vm_equivalences = {LineSegment3D: (StraightPipe3D, (('points', 0), ('points', 1))),
-                   Arc3D: (Bend3D, (('start', None), ('interior', None), ('end', None)))}
+vm_equivalences = {vm.LineSegment3D: (StraightPipe3D, (('points', 0), ('points', 1))),
+                   vm.Arc3D: (Bend3D, (('start', None), ('interior', None), ('end', None)))}
 
 def PipesFromVolmdlrPrimitives(primitive, d):
     hy_class, args = vm_equivalences[primitive.__class__]
@@ -515,13 +524,14 @@ def PipesFromVolmdlrPrimitives(primitive, d):
             args2.append(getattr(primitive, a))
         else:
             args2.append(getattr(primitive, a)[index])
-    print(args)
     return hy_class(*args2, d)
     
 def GetEquivalent(pt_coord, known_val, *grid_val):
-    # value for pt_coord using linear interpolation from discrete values inside a grid
-    # y_val can be a list or numpy array
-    # in case known_val is numpy array dim 2 then grid_val is 2 lists for lines and columns
+    """
+    value for pt_coord using linear interpolation from discrete values inside a grid
+    y_val can be a list or numpy array
+    in case known_val is numpy array dim 2 then grid_val is 2 lists for lines and columns
+    """
     dim=len(npy.shape(known_val))
     if dim==1:
         Lx=grid_val[0]
