@@ -26,14 +26,14 @@ points = [p1, p2, p3, p4, p5]
 
 rl = primitives3D.RoundedLineSegments3D(points, {1: 0.03, 2: 0.01, 3 : 0.02}, adapt_radius=True)
 
-pipes = [hy.PipesFromVolmdlrPrimitives(p, diameter) for p in rl.basis_primitives]
+pipes = [hy.pipes.PipesFromVolmdlrPrimitives(p, diameter) for p in rl.basis_primitives]
 points = [p.points[0] for p in rl.basis_primitives]+[rl.basis_primitives[-1].points[-1]]
 
 # Pipes definitions
 
 circuit = hy.Circuit3D(points, pipes, water)
 
-pressure, flows = circuit.Solve(imposed = 'pressure', imposed_values = {points[0]: dP, points[-1]: 0}) 
+pressure, flows = circuit.SolveFluidics(imposed = 'pressure', imposed_values = {points[0]: dP, points[-1]: 0}) 
 
 circuit.Draw(vm.x3D, vm.y3D)
 circuit.Draw(vm.x3D, vm.z3D)
