@@ -251,7 +251,9 @@ class JunctionPipe:
         line="Line({}) = [{},{}];\n".format(j,points_index[self.points[0]],points_index[self.points[1]])
         return(line,[j])
  
-vm_equivalences = {vm.LineSegment3D: (StraightPipe3D, (('points', 0), ('points', 1))),
+vm_equivalences = {vm.LineSegment2D: (StraightPipe2D, (('points', 0), ('points', 1))),
+                   vm.Arc2D: (Bend2D, (('start', None), ('interior', None), ('end', None))),
+                   vm.LineSegment3D: (StraightPipe3D, (('points', 0), ('points', 1))),
                    vm.Arc3D: (Bend3D, (('start', None), ('interior', None), ('end', None)))}
 
 def PipesFromVolmdlrPrimitives(primitive, d):
