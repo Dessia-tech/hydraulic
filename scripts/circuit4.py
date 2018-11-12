@@ -48,8 +48,8 @@ circuit = hy.Circuit2D(points, pipes, water)
 bords = [[0,-0.05],[0.12,-0.05],[0.12,0.05],[0,0.05]]
 liq_T = {points[0]:T_liq}
 
-pressure, flows = circuit.SolveFluidics(imposed = 'pressure', imposed_values = {points[0]: dP, points[-1]: 0}) 
+result = circuit.SolveFluidics(imposed = 'pressure', imposed_values = {points[0]: dP, points[-1]: 0}) 
 
-circuit.Draw()
-circuit.DisplaySolution()
-circuit.DisplaySolution(position = 1)
+result.circuit.Draw()
+result.DisplaySolution()
+result.DisplaySolution(position=True)

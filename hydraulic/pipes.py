@@ -48,7 +48,7 @@ class StraightPipe:
         return(line,[j])
 
 
-class StraightPipe2D:
+class StraightPipe2D(StraightPipe):
     """
     Straight pipes linking 2 2D points
     """
@@ -60,7 +60,7 @@ class StraightPipe2D:
         l.MPLPlot(ax)
 
         
-class StraightPipe3D:
+class StraightPipe3D(StraightPipe):
     """
     Straight pipes linking 2 3D points
     """
@@ -251,20 +251,20 @@ class JunctionPipe:
         line="Line({}) = [{},{}];\n".format(j,points_index[self.points[0]],points_index[self.points[1]])
         return(line,[j])
  
-vm_equivalences = {vm.LineSegment2D: (StraightPipe2D, (('points', 0), ('points', 1))),
+VM_EQUIVALENCES = {vm.LineSegment2D: (StraightPipe2D, (('points', 0), ('points', 1))),
                    vm.Arc2D: (Bend2D, (('start', None), ('interior', None), ('end', None))),
                    vm.LineSegment3D: (StraightPipe3D, (('points', 0), ('points', 1))),
                    vm.Arc3D: (Bend3D, (('start', None), ('interior', None), ('end', None)))}
 
 def PipesFromVolmdlrPrimitives(primitive, d):
-    hy_class, args = vm_equivalences[primitive.__class__]
+    hy_class, args = VM_EQUIVALENCES[primitive.__class__]
     args2 = []
     for a, index in args:
         if index is None:
             args2.append(getattr(primitive, a))
         else:
             args2.append(getattr(primitive, a)[index])
-    return hy_class(*args2, d)
+    return hy_class(*args2, d)        
     
 def GetEquivalent(pt_coord, known_val, *grid_val):
     """
