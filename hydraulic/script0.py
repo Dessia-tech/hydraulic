@@ -38,8 +38,9 @@ result.circuit.Draw()
 result.DisplaySolution()
 result.DisplaySolution(position=True)
 
-cooling_plates = []
+cooling_plate_parts = []
 for i, pipe in enumerate(circuit.pipes):
     thermal_area = 2*math.pi*pipe.radius*pipe.length
     resistor = thermal.ThermalResistor(cp_thickness, thermal_conductivity, thermal_area)
-    cooling_plates.append(thermal.CoolingPlatePartFromPipe(pipe, resistor, circuit.fluid))
+    cooling_plate_parts.append(thermal.CoolingPlatePartFromPipe(pipe, resistor, circuit.fluid))
+cooling_plate = thermal.CoolingPlate(circuit, cooling_plate_parts)
