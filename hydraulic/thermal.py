@@ -8,20 +8,26 @@ Created on Wed Nov  7 17:54:15 2018
 import numpy as npy
 import networkx as nx
 from scipy.linalg import solve
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from hydraulic.fluids import water
 
 class Node:
     """
     Defines a thermal node
     """
-    def __init__(self):
+    def __init__(self, name=''):
         self.n_equations = 1
+        self.name = name
+
+    def __repr__(self):
+        return self.name
 
 class Resistor:
     """
     Defines a thermal resistor
     """
-    def __init__(self, nodes, thickness, thermal_conductivity, area):
+    def __init__(self, nodes, thickness, thermal_conductivity, area, name=''):
         self.nodes = nodes
         self.thickness = thickness
         self.thermal_conductivity = thermal_conductivity
@@ -29,6 +35,10 @@ class Resistor:
         self.resistance = thickness/(thermal_conductivity*area)
         self.system_matrix = self.SystemMatrix()
         self.n_equations, self.n_variables = self.system_matrix.shape
+        self.name = name
+
+    def __repr__(self):
+        return self.name
 
     def SystemMatrix(self):
         """
@@ -43,13 +53,19 @@ class Junction:
     """
     Defines a junction, with several inputs and outputs
     """
-    def __init__(self, input_nodes, output_nodes):
+    def __init__(self, input_nodes, output_nodes, name=''):
         self.input_nodes = input_nodes
         self.output_nodes = output_nodes
         self.nodes = input_nodes + output_nodes
         input_flows = [1 for i in range(len(input_nodes))]
         self.system_matrix = self.SystemMatrix(input_flows)
         self.n_equations, self.n_variables = self.system_matrix.shape
+        self.name = name
+
+    def __repr__(self):
+        str0 = str(len(self.input_nodes))
+        str1 = str(len(self.output_nodes))
+        return str0+"-junct-"+str1
 
     def SystemMatrix(self, input_flows):
         """
@@ -88,6 +104,19 @@ class Junction:
         matrix = npy.array(matrix_generator)
         return matrix
 
+    def UpdateNode(self, old_node, new_node):
+        """
+        Replaces old_node by new_node
+        """
+        index_global = self.nodes.index(old_node)
+        if index_global < len(self.input_nodes):
+            index = self.input_nodes.index(old_node)
+            self.input_nodes[index] = new_node
+        else:
+            index = self.output_nodes.index(old_node)
+            self.output_nodes[index] = new_node
+        self.nodes[index_global] = new_node
+
 class NodeEquivalence:
     """
     Defines a link between 3 thermal nodes
@@ -97,11 +126,17 @@ class NodeEquivalence:
         self.system_matrix = self.SystemMatrix()
         self.n_equations, self.n_variables = self.system_matrix.shape
 
+        str0 = self.nodes[0].name
+        str1 = self.nodes[1].name
+        self.name = str0+"-nodeq-"+str1
+
+    def __repr__(self):
+        return self.name
+
     def SystemMatrix(self):
         """
         Computes block equations system
         T1 = T2
-        Phi1 + Phi2 = 0
         """
         matrix = npy.array([[1, 0, -1, 0]])
         return matrix
@@ -110,10 +145,16 @@ class ThermalPipe:
     """
     Defines a pipe
     """
-    def __init__(self, nodes):
+    def __init__(self, nodes, name=''):
         self.nodes = nodes
         self.system_matrix = self.SystemMatrix()
         self.n_equations, self.n_variables = self.system_matrix.shape
+        self.name = name
+
+    def __repr__(self):
+        str0 = self.nodes[0].name
+        str1 = self.nodes[1].name
+        return str0+"-tpipe-"+str1
 
     def SystemMatrix(self, flow=[1], fluid=water):
         """
@@ -127,15 +168,26 @@ class ThermalPipe:
 
         return matrix
 
+    def UpdateNode(self, old_node, new_node):
+        """
+        Replaces old_node by new_node
+        """
+        index = self.nodes.index(old_node)
+        self.nodes[index] = new_node
+
 class TemperatureBound:
     """
     Defines bounds conditions
     """
-    def __init__(self, nodes, value):
+    def __init__(self, nodes, value, name=''):
         self.nodes = nodes
         self.value = value
         self.system_matrix = self.SystemMatrix()
         self.n_equations, self.n_variables = self.system_matrix.shape
+        self.name = name
+
+    def __repr__(self):
+        return self.name
 
     def SystemMatrix(self):
         """
@@ -148,11 +200,15 @@ class HeatFlowInBound:
     """
     Defines bounds conditions
     """
-    def __init__(self, nodes, value):
+    def __init__(self, nodes, value, name=''):
         self.nodes = nodes
         self.value = value
         self.system_matrix = self.SystemMatrix()
         self.n_equations, self.n_variables = self.system_matrix.shape
+        self.name = name
+
+    def __repr__(self):
+        return self.name
 
     def SystemMatrix(self):
         """
@@ -165,10 +221,14 @@ class HeatFlowOutBound:
     """
     Defines bounds conditions
     """
-    def __init__(self, nodes):
+    def __init__(self, nodes, name=''):
         self.nodes = nodes
         self.system_matrix = self.SystemMatrix()
         self.n_equations = 0
+        self.name = name
+
+    def __repr__(self):
+        return self.name
 
     def SystemMatrix(self):
         """
@@ -180,17 +240,24 @@ class Circuit:
     """
     Defines a thermal circuit
     """
-    def __init__(self, nodes, blocks):
+    def __init__(self, nodes, blocks, name=''):
         self.nodes = nodes
         self.blocks = blocks
-        self.temperature_dict, self.flows_dict, self.equations_dict = self.NumberElements()
         self.nodes2blocks = {node : [] for node in nodes}
         for block in blocks:
             for node in block.nodes:
                 if block not in self.nodes2blocks[node]:
                     self.nodes2blocks[node].append(block)
+        self.AddEquivalenceBlocks()
+
+        self.temperature_dict, self.flows_dict, self.equations_dict = self.NumberElements()
+        self.graph = self.GenerateGraph()
+        self.name = name
 
     def NumberElements(self):
+        """
+        Gives each variable its global position in solution vector and system matrix
+        """
         temperatures_dict = {}
         flows_dict = {}
         equations_dict = {}
@@ -212,6 +279,25 @@ class Circuit:
 
         return temperatures_dict, flows_dict, equations_dict
 
+    def AddEquivalenceBlocks(self):
+        """
+        Finds nodes that are connected to 2 hydraulic blocks and replace them
+        with node equivalences
+        """
+        for node in self.nodes:
+            hydraulic_blocks = self.nodes2blocks[node]
+            are_hydraulic = [IsHydraulicBlock(block) for block in hydraulic_blocks]
+            if all(are_hydraulic) and len(hydraulic_blocks) > 1:
+                block1 = hydraulic_blocks[0]
+                block2 = hydraulic_blocks[1]
+                output_node = Node('node'+str(len(self.nodes)))
+                equivalence_block = NodeEquivalence([node, output_node])
+                block2.UpdateNode(node, output_node)
+                self.nodes.append(output_node)
+                self.blocks.append(equivalence_block)
+                self.nodes2blocks[node] = [block1, equivalence_block]
+                self.nodes2blocks[output_node] = [equivalence_block, block2]
+
     def SystemMatrix(self, input_flows={}, fluid=None):
         """
         Loops on every blocks to get its equation and then assemble the whole system
@@ -221,9 +307,9 @@ class Circuit:
         system_matrix = npy.zeros((n_equations, n_variables))
 
         for block in self.blocks:
-            if block in input_flows.keys() and len(input_flows[block]) == 1:
+            if block.__class__ == ThermalPipe:
                 block_system_matrix = block.SystemMatrix(input_flows[block], fluid)
-            elif block in input_flows.keys() and len(input_flows[block]) > 1:
+            elif block.__class__ == Junction:
                 block_system_matrix = block.SystemMatrix(input_flows[block])
             else:
                 block_system_matrix = block.SystemMatrix()
@@ -247,6 +333,9 @@ class Circuit:
         return system_matrix
 
     def Solve(self, input_flows={}, fluid=None):
+        """
+        Solves system matrix with given input flows and fluid
+        """
         system_matrix = self.SystemMatrix(input_flows, fluid)
         vector_b = npy.zeros(system_matrix.shape[0])
         bounds_blocks = [block for block in self.blocks\
@@ -257,141 +346,95 @@ class Circuit:
             vector_b[i_global] = block.value
         solution = solve(system_matrix, vector_b)
 
-        return system_matrix, vector_b, solution
+        result = ThermalResult(self, system_matrix, vector_b, solution)
+        return result
 
-    def Draw(self):
+    def GenerateGraph(self):
+        """
+        Generate circuit graph
+        """
         graph = nx.Graph()
         if self.nodes:
-            graph.add_nodes_from(self.nodes)
-            for block in self.blocks:
-                if len(block.nodes) > 1:
-                    graph.add_edge(*block.nodes)
+            graph.add_nodes_from(self.nodes, node_type='node', node_shape='o')
 
-        nx.draw_kamada_kawai(graph)
+        if self.blocks:
+            graph.add_nodes_from(self.blocks, node_type='block', node_shape='s')
 
-def EquationsSystemAnalysis(M, targeted_variables,
-                            arret_surcontrainte=True,
-                            dependences=None):
+        for block in self.blocks:
+            for node in block.nodes:
+                graph.add_edge(block, node)
+
+        return graph
+
+    def Draw(self):
+        """
+        Draws circuit graph with kamada-kawai layout
+        """
+        nx.draw_kamada_kawai(self.graph)
+
+class ThermalResult:
     """
-    Analyze an Equation system given by its occurence matrix and the targeted variable to solve
-    :return: False (système non solvable si il existe des parties surcontraintes)
-    si arret_surcontrainte==True
-    sinon, renvoie True, les variables résolvables et l'ordre de résolution
+    Defines a thermal circuit solution
     """
-    neq, nvar = M.shape
-    G = nx.Graph()
-    Gp = nx.DiGraph()
-    pos = {}
-    for i in range(nvar):
-        G.add_node('v'+str(i), bipartite=0)
-        Gp.add_node('v'+str(i), bipartite=0)
-        pos['v'+str(i)] = [i, 0]
+    def __init__(self, circuit, system_matrix, vector_b, solution):
+        self.circuit = circuit
+        self.system_matrix = system_matrix
+        self.vector_b = vector_b
+        self.solution = solution
 
-    for i in range(neq):
-        G.add_node('e'+str(i), bipartite=1)
-        Gp.add_node('e'+str(i), bipartite=1)
-        pos['e'+str(i)] = [i, 1]
-        for j in range(nvar):
-            if M[i, j] != 0:
-                G.add_edge('e'+str(i), 'v'+str(j))
-                Gp.add_edge('e'+str(i), 'v'+str(j))
+    def Display(self, color_map='jet'):
+        """
+        Displays solution as a kamada-kawai graph layout
+        """
+        graph = self.circuit.graph
 
-    # Adding dependences
-    if dependences is not None:
-        for eq, var in dependences:
-            Gp.add_edge('e'+str(eq), 'v'+str(var))
+        graph_pos = nx.kamada_kawai_layout(graph)
+        fig = plt.figure("Solution")
+        ax = fig.add_subplot(111)
 
-    sinks = []
-    sources = []
+        nodes = [node for node in graph.nodes if graph.nodes[node]['node_type'] == 'node']
+        blocks = [node for node in graph.nodes if graph.nodes[node]['node_type'] == 'block']
+        block_node_couples = [(block, node) for block in blocks for node in block.nodes]
 
-    for Gi in nx.connected_component_subgraphs(G):
-        M = nx.bipartite.maximum_matching(Gi)
+        temp_values = [self.solution[self.circuit.temperature_dict[node]] for node in nodes]
 
-        for n1, n2 in M.items():
-            Gp.add_edge(n1, n2)
+        temp_pts = nx.draw_networkx_nodes(graph,
+                                          pos=graph_pos,
+                                          nodelist=nodes,
+                                          node_color=temp_values,
+                                          node_size=100,
+                                          cmap=color_map)
+        nx.draw_networkx_nodes(graph,
+                               pos=graph_pos,
+                               nodelist=blocks,
+                               node_shape='s',
+                               node_color='k',
+                               node_size=50)
 
-    for node in Gp.nodes():
-        if Gp.out_degree(node) == 0:
-            sinks.append(node)
-        elif Gp.in_degree(node) == 0:
-            sources.append(node)
-
-    G2 = sources[:]
-    for node in sources:
-        for node2 in nx.descendants(Gp, node):
-            if node2 not in G2:
-                G2.append(node2)
-
-    if arret_surcontrainte:
-        if G2 != []:
-            return (False, [], None)
-
-    G3 = sinks[:]
-    for node in sinks:
-        for node2 in nx.ancestors(Gp, node):
-            if node2 not in G3:
-                G3.append(node2)
-
-    solvable_vars = []
-    for var in targeted_variables:
-        if not 'v{}'.format(var) in G2+G3:
-            solvable_vars.append(var)
-
-    G1 = G.copy()
-    G1.remove_nodes_from(G2+G3)
-
-    G1p = nx.DiGraph()
-
-    G1p.add_nodes_from(G1.nodes())
-    for e in G1.edges():
-        # Equation vers variable
-        if e[0][0] == 'v':
-            G1p.add_edge(e[0], e[1])
-        else:
-            G1p.add_edge(e[1], e[0])
-
-
-    for G1i in nx.connected_component_subgraphs(G1):
-        M1 = nx.bipartite.maximum_matching(G1i)
-
-
-        for n1, n2 in M1.items():
-            if n1[0] == 'e':
-                G1p.add_edge(n1, n2)
+        for bnc in block_node_couples:
+            index = self.circuit.flows_dict[bnc]
+            flow_value = self.solution[index]
+            if flow_value <= 0:
+                # From block to node
+                edge_position = (graph_pos[bnc[0]], graph_pos[bnc[1]])
             else:
-                G1p.add_edge(n2, n1)
+                # From node to block
+                edge_position = (graph_pos[bnc[1]], graph_pos[bnc[0]])
 
-    # Adding dependences
-    if dependences is not None:
-        for eq, var in dependences:
-            G1p.add_edge('e'+str(eq), 'v'+str(var))
+            x = edge_position[0][0]
+            y = edge_position[0][1]
+            dx = edge_position[1][0] - x
+            dy = edge_position[1][1] - y
+            ax.add_patch(patches.FancyArrow(x, y, dx, dy, width=abs(flow_value)/1000,
+                                            length_includes_head=True,
+                                            head_width=abs(flow_value)*1.5/1000))
+        ax.axis('equal')
+        plt.colorbar(temp_pts)
 
-    scc = list(nx.strongly_connected_components(G1p))
-
-    if scc != []:
-        C = nx.condensation(G1p, scc)
-        # On cherche les indices des blocs contenant chacune des variables
-        isc_vars = []
-        for isc, sc in enumerate(scc):
-            for var in solvable_vars:
-                if 'v'+str(var) in sc:
-                    isc_vars.append(isc)
-                    break
-        ancetres_vars = isc_vars[:]
-
-        for isc_var in isc_vars:
-            for ancetre in nx.ancestors(C, isc_var):
-                if ancetre not in ancetres_vars:
-                    ancetres_vars.append(ancetre)
-
-        ordre_sc = [sc for sc in nx.topological_sort(C) if sc in ancetres_vars]
-        ordre_ev = []
-        for isc in ordre_sc:
-            evs = sorted(scc[isc]) # liste d'équations et de variables triées pour être séparées
-
-            levs = int(len(evs)/2)
-            ordre_ev.append(([int(e[1:]) for e in evs[0:levs]], [int(v[1:]) for v in evs[levs:]]))
-
-        return (True, solvable_vars, ordre_ev)
-
-    return (False, [], None)
+def IsHydraulicBlock(block):
+    """
+    Checks block type. Return False if block is only thermal, True otherwise
+    """
+    if block.__class__ == ThermalPipe or block.__class__ == Junction:
+        return True
+    return False
