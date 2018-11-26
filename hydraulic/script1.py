@@ -202,32 +202,33 @@ import math
 # =============================================================================
 # Hydraulic
 hnodes = [th.Node('h'+str(i)) for i in range(22)]
+tnodes = [th.Node('t'+str(i)) for i in range(15)]
 
 b1 = th.TemperatureBound([hnodes[0]], 313, 'b1')
-p1 = th.ThermalPipe([hnodes[0], hnodes[1]], 0.0000030, water, 'p1')
+p1 = th.ThermalPipe([hnodes[0], hnodes[1], tnodes[0]], 0.0000030, water, 'p1')
 j1 = th.Junction([hnodes[1]], [hnodes[2], hnodes[3]], [0.0000030], water, 'j1')
-p2 = th.ThermalPipe([hnodes[2], hnodes[4]], 0.0000010, water, 'p2')
-p3 = th.ThermalPipe([hnodes[4], hnodes[6]], 0.0000020, water, 'p3')
-p4 = th.ThermalPipe([hnodes[6], hnodes[8]], 0.0000010, water, 'p4')
+p2 = th.ThermalPipe([hnodes[2], hnodes[4], tnodes[1]], 0.0000010, water, 'p2')
+p3 = th.ThermalPipe([hnodes[4], hnodes[6], tnodes[2]], 0.0000020, water, 'p3')
+p4 = th.ThermalPipe([hnodes[6], hnodes[8], tnodes[3]], 0.0000010, water, 'p4')
 
-p5 = th.ThermalPipe([hnodes[3], hnodes[5]], 0.0000020, water, 'p5')
-p6 = th.ThermalPipe([hnodes[5], hnodes[7]], 0.0000010, water, 'p6')
-p7 = th.ThermalPipe([hnodes[7], hnodes[9]], 0.0000020, water, 'p7')
+p5 = th.ThermalPipe([hnodes[3], hnodes[5], tnodes[4]], 0.0000020, water, 'p5')
+p6 = th.ThermalPipe([hnodes[5], hnodes[7], tnodes[5]], 0.0000010, water, 'p6')
+p7 = th.ThermalPipe([hnodes[7], hnodes[9], tnodes[6]], 0.0000020, water, 'p7')
 j2 = th.Junction([hnodes[8], hnodes[9]], [hnodes[10], hnodes[11], hnodes[12]],
                  [0.0000015, 0.0000015], water, 'j2')
-p8 = th.ThermalPipe([hnodes[10], hnodes[13]], 0.0000010, water, 'p8')
-p9 = th.ThermalPipe([hnodes[13], hnodes[15]], 0.0000010, water, 'p9')
-p10 = th.ThermalPipe([hnodes[15], hnodes[17]], 0.0000010, water, 'p10')
+p8 = th.ThermalPipe([hnodes[10], hnodes[13], tnodes[7]], 0.0000010, water, 'p8')
+p9 = th.ThermalPipe([hnodes[13], hnodes[15], tnodes[8]], 0.0000010, water, 'p9')
+p10 = th.ThermalPipe([hnodes[15], hnodes[17], tnodes[9]], 0.0000010, water, 'p10')
 
-p11 = th.ThermalPipe([hnodes[11], hnodes[18]], 0.0000010, water, 'p11')
+p11 = th.ThermalPipe([hnodes[11], hnodes[18], tnodes[10]], 0.0000010, water, 'p11')
 
-p12 = th.ThermalPipe([hnodes[12], hnodes[14]], 0.0000010, water, 'p12')
-p13 = th.ThermalPipe([hnodes[14], hnodes[16]], 0.0000010, water, 'p13')
-p14 = th.ThermalPipe([hnodes[16], hnodes[19]], 0.0000010, water, 'p14')
+p12 = th.ThermalPipe([hnodes[12], hnodes[14], tnodes[11]], 0.0000010, water, 'p12')
+p13 = th.ThermalPipe([hnodes[14], hnodes[16], tnodes[12]], 0.0000010, water, 'p13')
+p14 = th.ThermalPipe([hnodes[16], hnodes[19], tnodes[13]], 0.0000010, water, 'p14')
 j3 = th.Junction([hnodes[17], hnodes[18], hnodes[19]], [hnodes[20]],
                  [0.0000010, 0.0000010, 0.0000010],
                  water, 'j2')
-p15 = th.ThermalPipe([hnodes[20], hnodes[21]], 0.0000030, water, 'p15')
+p15 = th.ThermalPipe([hnodes[20], hnodes[21], tnodes[14]], 0.0000030, water, 'p15')
 b2 = th.HeatFlowOutBound([hnodes[21]], 'b2')
 
 bounds = [b1, b2]
@@ -239,22 +240,15 @@ junctions = [j1, j2, j3]
 hblocks = [*bounds, *pipes, *junctions]
 
 # Thermal
-tnodes = []
 rnodes = []
 tblocks = []
 for i, pipe in enumerate(pipes):
-    tnode = th.Node('t'+str(i))
-    tnodes.append(tnode)
-    pipe.nodes.append(tnode)
-
+    tnode = tnodes[i]
     rnode = th.Node('r'+str(i))
     rnodes.append(rnode)
     r = th.Resistor([tnode, rnode], 0.001, 0.01, 0.010)
     tblocks.append(r)
-    if i > 0 and i <= 3:
-        hf = th.HeatFlowInBound([rnode], 10)
-    else:
-        hf = th.HeatFlowInBound([rnode], -10)
+    hf = th.HeatFlowInBound([rnode], -10)
     tblocks.append(hf)
 
 # Circuit
