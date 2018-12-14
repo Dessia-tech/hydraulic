@@ -9,6 +9,13 @@ Created on Tue Nov 13 17:24:47 2018
 import thermal as th
 from hydraulic.fluids import water
 import math
+import volmdlr as vm
+
+# =============================================================================
+# Environment
+# =============================================================================
+cp_thickness = 0.001
+thermal_conductivity = 237
 
 # =============================================================================
 # Resistors in series
@@ -97,6 +104,28 @@ import math
 #result = thc.Solve(junction_input_flows)
 
 # =============================================================================
+# Test on Node equivalence
+# =============================================================================
+#node1 = th.Node()
+#node2 = th.Node()
+#node3 = th.Node()
+#node4 = th.Node()
+#node5 = th.Node()
+#node6 = th.Node()
+#nodes = [node1, node2, node3, node5, node6]
+#
+#bound1 = th.TemperatureBound([node1], 273)
+#block1 = th.ThermalPipe([node1, node2, node3], 0.0001)
+#bound2 = th.HeatFlowOutBound([node3])
+##ne1 = th.NodeEquivalence([node2, node4])
+#block2 = th.ThermalPipe([node2, node5, node6], 0.0001)
+#bound2 = th.HeatFlowOutBound([node6])
+#bound2 = th.HeatFlowOutBound([node5])
+#blocks = [bound1, block1, block2, bound2]
+#
+#thc = th.Circuit(nodes, blocks)
+#system_matrix = thc.SystemMatrix()
+# =============================================================================
 # Cooling pipe
 # =============================================================================
 #node1 = th.Node()
@@ -150,30 +179,30 @@ import math
 # =============================================================================
 # Double Cooling Pipe variant (without NodeEquivalence)
 # =============================================================================
-#node01 = th.Node()
-#node02 = th.Node()
-#node03 = th.Node()
-#node04 = th.Node()
-#node12 = th.Node()
-#node13 = th.Node()
-#node14 = th.Node()
+#node01 = th.Node('h01')
+#node02 = th.Node('h02')
+#node03 = th.Node('t01')
+#node04 = th.Node('t02')
+#node12 = th.Node('h12')
+#node13 = th.Node('t11')
+#node14 = th.Node('t12')
 #nodes = [node01, node02, node03, node04, node12, node13, node14]
 #
-#bound01 = th.TemperatureBound([node01], 273)
-#block01 = th.ThermalPipe([node01, node02, node03], 0.000001, water)
-#block02 = th.Resistor([node03, node04], 2, 1, 1)
-#bound02 = th.HeatFlowInBound([node04], -100)
+#bound01 = th.TemperatureBound([node01], 273, 'bc0')
+#block01 = th.ThermalPipe([node01, node02, node03], 0.000001, water, 'p0')
+#block02 = th.Resistor([node03, node04], 2, 1, 'r0')
+#bound02 = th.HeatFlowInBound([node04], -100, 'cell0')
 #
-#block11 = th.ThermalPipe([node02, node12, node13], 0.000001, water)
-#bound12 = th.HeatFlowOutBound([node12])
-#block12 = th.Resistor([node13, node14], 5, 1, 1)
-#bound13 = th.HeatFlowInBound([node14], -200)
+#block11 = th.ThermalPipe([node02, node12, node13], 0.000001, water, 'p1')
+#bound12 = th.HeatFlowOutBound([node12], 'bc1')
+#block12 = th.Resistor([node13, node14], 5, 1, 'r1')
+#bound13 = th.HeatFlowInBound([node14], -200, 'cell1')
 #blocks = [bound01, block01, block02, bound02, block11, bound12, block12, bound13]
 #
 #thc = th.Circuit(nodes, blocks)
-#system_matrix1 = thc.SystemMatrix()
-#result1 = thc.Solve()
-#result1.Display()
+#system_matrix = thc.SystemMatrix()
+#result = thc.Solve()
+#result.Display()
 
 # =============================================================================
 # Simple Junction
@@ -246,9 +275,12 @@ for i, pipe in enumerate(pipes):
     tnode = tnodes[i]
     rnode = th.Node('r'+str(i))
     rnodes.append(rnode)
-    r = th.Resistor([tnode, rnode], 0.001, 0.01, 0.010)
+    r = th.Resistor([tnode, rnode], 0.001/0.01, 0.010)
     tblocks.append(r)
-    hf = th.HeatFlowInBound([rnode], -10)
+    if i > 0 and i <= 3:
+        hf = th.HeatFlowInBound([rnode], 10)
+    else:
+        hf = th.HeatFlowInBound([rnode], -10)
     tblocks.append(hf)
 
 # Circuit
@@ -259,4 +291,4 @@ system_matrix = thc.SystemMatrix()
 
 # Solve and diplay
 result = thc.Solve()
-result.Display()
+result.Display()    

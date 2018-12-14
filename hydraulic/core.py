@@ -8,16 +8,17 @@ import math
 import numpy as npy
 import networkx as nx
 import matplotlib.pyplot as plt
+from matplotlib import patches
 from scipy.linalg import solve
-import hydraulic.pipes as hy_pipes
-import hydraulic.thermal as thermal
+import hydraulic.pipes as hyp
+import hydraulic.thermal as th
 import volmdlr as vm
 
 # Definition of equivalent L/D values
-# lists in increasing order
+# Lists in increasing order
 ben_angle = [0, 45, 90, 180, 360]
 ben_LD = [0, 16, 30, 60, 120]
-# bend radius ?
+# Bend radius ?
 mbd_angle = [0, 45, 90]
 mbd_LD = [0, 15, 58]
 enl_rap = [1/4, 1/2, 3/4, 1]
@@ -25,21 +26,14 @@ enl_LD = [30, 20, 6.5, 0]
 ctr_rap = [1, 4/3, 2, 4]
 ctr_LD = [0, 6.5, 11, 15]
 
-class ThermalNode:
-    def __init__(self, name=''):
-        self.name = name
-
-class ThermalResistance:
-    def __init__(self, resistivity):
-        self.resistivity = resistivity
-
 class Circuit:
     """
     general class for 2D circuits
     """
-    def __init__(self, points, pipes, fluid):
+    def __init__(self, points, pipes, boundary_conditions, fluid):
         self.points = points
         self.pipes = pipes
+        self.boundary_conditions = boundary_conditions
         self.fluid = fluid
 
         self.graph = self.GenerateGraph()
@@ -47,10 +41,22 @@ class Circuit:
 
     def GenerateGraph(self):
         graph = nx.Graph()
-        if self.points:
-            graph.add_nodes_from(self.points)
-            for pipe in self.pipes:
-                graph.add_edge(*pipe.points, object=pipe)
+        if self.points and self.pipes:
+            active_points = {point for pipe in self.pipes\
+                             for point in pipe.active_points}
+            graph.add_nodes_from(active_points,
+                                 node_type='point',
+                                 node_shape='o')
+            graph.add_nodes_from(self.pipes,
+                                 node_type='pipe',
+                                 node_shape='s')
+            graph.add_nodes_from(self.boundary_conditions,
+                                 node_type='boundary_condition',
+                                 node_shape='^')
+
+        for pipe in self.pipes:
+            for point in pipe.active_points:
+                graph.add_edge(pipe, point)
         return graph
 
     def AddPoint(self, coordinates):
@@ -68,30 +74,97 @@ class Circuit:
         # uniting=1 if flows from ps to p1, =0 if from p1 to ps
         for p in ps:
             if uniting:
-                pipe = hy_pipes.JunctionPipe(p, p1, diameter)
+                pipe = hyp.JunctionPipe(p, p1, diameter)
             else:
-                pipe = hy_pipes.JunctionPipe(p1, p, diameter)
+                pipe = hyp.JunctionPipe(p1, p, diameter)
             self.pipes.append(pipe)
             self.graph.add_edge(*pipe.points, object=pipe)
+
+    def Point2Pipes(self):
+        point2pipes = {point : [] for point in self.points}
+        for point in self.points:
+            for pipe in self.pipes + self.boundary_conditions:
+                if point in pipe.points:
+                    point2pipes[point].append(pipe)
+        return point2pipes
 
     def DrawGraph(self):
         graph_pos = nx.kamada_kawai_layout(self.graph)
         labels_dict = {node : str(node) for node in list(self.graph.nodes)}
-        dic_edges = nx.get_edge_attributes(self.graph, 'object')
-        labels_edge_dict = {edge : dic_edges[edge] for edge in list(self.graph.edges)}
         plt.figure("circuit")
         nx.draw_networkx(self.graph,
                          pos=graph_pos,
                          labels=labels_dict,
                          withlabels=True,
                          fontweight="bold")
-        nx.draw_networkx_edge_labels(self.graph,
-                                     pos=graph_pos,
-                                     edge_labels=labels_edge_dict,
-                                     withlabels=True,
-                                     font_size=7)
 
-    def SolveFluidics(self, imposed, imposed_values, low_p=0):
+    def NumberElements(self):
+        pressures_dict = {}
+        flows_dict = {}
+        equations_dict = {}
+        couples = []
+        n_lines = 0
+
+        for j, point in enumerate(self.points):
+            pressures_dict[point] = j
+            for pipe in self.pipes + self.boundary_conditions:
+                if point in pipe.active_points and (pipe, point) not in couples:
+                    couples.append((pipe, point))
+
+        j_origin = j + 1
+        for j, couple in enumerate(couples):
+            j_real = j_origin + j
+            flows_dict[couple] = j_real
+
+        for pipe in self.pipes + self.boundary_conditions:
+            equations_dict[pipe] = range(n_lines, n_lines + pipe.n_equations)
+            n_lines += pipe.n_equations
+
+        return pressures_dict, flows_dict, equations_dict
+
+    def SystemMatrix(self, constant):
+        pressures_dict, flows_dict, equations_dict = self.NumberElements()
+        junctions = [pipe for pipe in self.pipes if pipe.__class__ == hyp.JunctionPipe]
+        n_equations = sum(pipe.n_equations for pipe in self.pipes + self.boundary_conditions)\
+                          + len(self.points)\
+                          - len(junctions) # !!!
+        n_variables = len(pressures_dict.keys()) + len(flows_dict.keys())
+        system_matrix = npy.zeros((n_equations, n_variables))
+        points2pipes = self.Point2Pipes()
+
+        # Write blocks equations
+        for pipe in self.pipes + self.boundary_conditions:
+            if pipe in self.boundary_conditions:
+                block_system_matrix = pipe.SystemMatrix()
+            else:
+                block_system_matrix = pipe.SystemMatrix(constant)
+            for i_local, i_global in enumerate(equations_dict[pipe]):
+                for j, point in enumerate(pipe.points):
+                    j_press_local = 2*j
+                    j_press_global = pressures_dict[point]
+                    system_matrix[i_global][j_press_global] = block_system_matrix[i_local][j_press_local]
+
+                    if point in pipe.active_points:
+                        j_flow_local = 2*j + 1
+                        j_flow_global = flows_dict[(pipe, point)]
+                        system_matrix[i_global][j_flow_global] = block_system_matrix[i_local][j_flow_local]
+
+        i = i_global + 1
+        valid = False
+        for point in self.points:
+            pipes = points2pipes[point]
+            for pipe in pipes:
+                if point in pipe.active_points:
+                    j_flow_global = flows_dict[(pipe, point)]
+                    system_matrix[i][j_flow_global] = 1
+                    valid = True
+            if valid:
+                i += 1
+            valid = False
+
+        return system_matrix
+
+    def SolveFluidics(self):
         """
         solves the hydraulic circuit for
         :param imposed: = "pressure" or "flow"
@@ -101,77 +174,20 @@ class Circuit:
                for output points specify "out" as value
                output points will be set at pressure = low_p
         """
-        if imposed == "pressure":
-            delta_P = imposed_values
-            Qs = dict()
-            l_index_q = []
-        elif imposed == "flow":
-            Qs = imposed_values
-            delta_P = dict()
-            l_index_q_temp = [self.points.index(point) for point in list(Qs.keys())]
-            l_index_q = []
-            for i in l_index_q_temp:
-                if  Qs[self.points[i]] == "out":
-                    delta_P[self.points[i]] = low_p
-                else:
-                    l_index_q.append(i)
-        else:
-            print("Warning, must specify if flow or pressure is imposed")
-            return ()
-        n = len(self.points)
-        m = len(self.pipes)
-        M_behavior = npy.zeros([m, n])
-        S_nodes = npy.zeros([n, m])
-        eps = 1e-3 # Small value for approximation of deltaP=0
-        # A too small eps value may result in Ill-conditioned matrix
+        dictionaries = self.NumberElements()
+        equations_dict = dictionaries[2]
 
-        for j in range(m):
-            pipe = self.pipes[j]
-            i1 = self.points.index(pipe.points[0])
-            i2 = self.points.index(pipe.points[1])
-            if pipe.fQ:
-                M_behavior[j, i1] = 2/(self.fluid.rho*self.fluid.nu*pipe.fQ)
-                M_behavior[j, i2] = -2/(self.fluid.rho*self.fluid.nu*pipe.fQ)
-            else:
-                M_behavior[j, i1] = 2/(self.fluid.rho*self.fluid.nu*eps)
-                M_behavior[j, i2] = -2/(self.fluid.rho*self.fluid.nu*eps)
-            S_nodes[i1, j] = -1
-            S_nodes[i2, j] = 1
+        constant = 2/(self.fluid.rho*self.fluid.nu)
+        system_matrix = self.SystemMatrix(constant)
+        vector_b = npy.zeros(system_matrix.shape[0])
 
-        A_circuit = npy.dot(S_nodes, M_behavior)
-        M_circuit = A_circuit.copy()
-        l_index_p = [self.points.index(point) for point in list(delta_P.keys())]
-        l_index_p.sort()
-        n_del = 0
-        for i in l_index_p:
-            M_circuit = npy.delete(M_circuit, i-n_del, axis=0)
-            n_del += 1
-        vect_delta_P = npy.zeros([n-n_del,])
-        vect_imp_Q = npy.zeros([n-n_del,])
-        n_del_col = 0
-        l_index = l_index_p+l_index_q
-        l_index.sort()
-        for i in l_index:
-            if i in l_index_p:
-                vect_delta_P += M_circuit[:, i-n_del_col]*(-1)*delta_P[self.points[i]]
-                M_circuit = npy.delete(M_circuit, i-n_del_col, axis=1)
-                n_del_col += 1
-            else:
-                vect_imp_Q[i-n_del_col] = -Qs[self.points[i]]
-        vect_imp = vect_delta_P + vect_imp_Q
-        vect_P = list(solve(M_circuit, vect_imp))
-        for i in l_index_p:
-            vect_P.insert(i, delta_P[self.points[i]])
+        for boundary_condition in self.boundary_conditions:
+            j_global = equations_dict[boundary_condition]
+            vector_b[j_global] = boundary_condition.value
 
-        vect_Q = npy.dot(M_behavior, vect_P)
-        # Add solution to each element
-#        for i in range(0,n):
-#            pressures[self.points[i]] = vect_P[i]
-##            self.points[i].press=vect_P[i]
-#        for i in range(0,m):
-#            flows[self.points[i]] = vect_Q[i]
-##            self.pipes[i].flow=vect_Q[i]
-        result = FluidicsResults(vect_P, vect_Q, self, imposed, imposed_values, low_p)
+        # Solve
+        solution = solve(system_matrix, vector_b)
+        result = FluidicsResults(self, system_matrix, vector_b, solution)
         return result
 
     def VerifyQ(self):
@@ -179,7 +195,7 @@ class Circuit:
         Check if the flow rate is laminar inside the circuit
         """
         turbulent = 0
-        for i, pipe in enumerate(self.pipes):
+        for pipe in self.pipes:
             Re = 2*pipe.flow/(self.fluid.nu*math.pi*pipe.radius)
             if Re > 2000: # Laminar condition
                 turbulent = 1
@@ -187,18 +203,14 @@ class Circuit:
         if not turbulent:
             print("Flow is laminar in the circuit")
 
-    def ToThermal(self, resistors):
-        cooling_plates = []
-        for i, pipe in enumerate(self.pipes):
-            cooling_plates.append(thermal.CoolingPlatePartFromPipe(pipe, resistors[i], self.fluid))
-        return cooling_plates
-
 class Circuit2D(Circuit):
-    def __init__(self, points, pipes, fluid):
-        Circuit.__init__(self, points, pipes, fluid)
+    def __init__(self, points, pipes, boundary_conditions, fluid):
+        Circuit.__init__(self, points, pipes, boundary_conditions, fluid)
 
-    def Draw(self):
-        fig, ax = plt.subplots()
+    def Draw(self, ax=None):
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
         ax.set_aspect('equal')
         for pipe in self.pipes:
             pipe.Draw(ax)
@@ -231,7 +243,7 @@ class Circuit2D(Circuit):
         file.write(geo_txt)
         file.close()
         if index:
-            return(pts_index, n_pipes+added_elems, physicals)
+            return (pts_index, n_pipes+added_elems, physicals)
 
     def FindLimits(self):
         # Returns the nodes which are defined as the end of a pipe
@@ -242,12 +254,14 @@ class Circuit2D(Circuit):
         return points_lim
 
 class Circuit3D(Circuit):
-    def __init__(self, points, pipes, fluid):
-        Circuit.__init__(self, points, pipes, fluid)
+    def __init__(self, points, pipes, boundary_conditions, fluid):
+        Circuit.__init__(self, points, pipes, boundary_conditions, fluid)
 
-    def Draw(self, x3D, y3D):
-        fig, ax = plt.subplots()
-        ax.set_aspect('equal')
+    def Draw(self, x3D=vm.x3D, y3D=vm.y3D, ax=None):
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+
         for pipe in self.pipes:
             pipe.Draw(x3D, y3D, ax)
 
@@ -265,80 +279,219 @@ class Circuit3D(Circuit):
         model = self.CADModel()
         return model.FreeCADExport(filename, python_path, path_lib_freecad, export_types)
 
-class FluidicsResults:
-    def __init__(self, vect_p, vect_q,
-                 circuit,
-                 imposed, imposed_values, low_p):
-        self.vect_p = vect_p
-        self.vect_q = vect_q
-        self.circuit = circuit
-        self.imposed = imposed
-        self.imposed_values = imposed_values
-        self.low_p = low_p
-        self.dict_press = {point : vect_p[i] for i, point in enumerate(circuit.points)}
-        self.dict_flows = {pipe : vect_q[i] for i, pipe in enumerate(circuit.pipes)}
+class PressureCondition:
+    def __init__(self, point, value):
+        self.points = [point]
+        self.active_points = self.points
+        self.value = value
+        self.heat_exchange = False
+        self.system_matrix = self.SystemMatrix()
+        self.n_equations = 1
 
-    def DisplaySolution(self, digits=2,
+    def SystemMatrix(self):
+        system_matrix = npy.array([[1, 0]])
+        return system_matrix
+
+class FlowCondition:
+    def __init__(self, point, value):
+        self.points = [point]
+        self.active_points = self.points
+        self.value = value
+        self.heat_exchange = False
+        self.system_matrix = self.SystemMatrix()
+        self.n_equations = 1
+
+    def SystemMatrix(self):
+        system_matrix = npy.array([[0, -1]])
+        return system_matrix
+
+class FluidicsResults:
+    def __init__(self, circuit, system_matrix, vector_b, solution):
+        self.circuit = circuit
+        self.system_matrix = system_matrix
+        self.vector_b = vector_b
+        self.solution = solution
+        self.vect_p = []
+        self.vect_q = []
+        self.j_pressures, self.j_flows, self.i_equations = circuit.NumberElements()
+        for j, value in enumerate(solution):
+            if j in self.j_pressures.values():
+                self.vect_p.append(value)
+            elif j in self.j_flows.values():
+                self.vect_q.append(value)
+        self.dict_press = {point : self.vect_p[i]\
+                           for i, point in enumerate(circuit.points)}
+        self.dict_flows = {pipe : self.vect_q[i]\
+                           for i, pipe in enumerate(circuit.pipes + circuit.boundary_conditions)}
+
+    def ToThermal(self, fluid_input_points, fluid_output_points):
+        """
+        Converts hydraulic circuit to thermal
+        """
+        # Equivalence dictionaries initialising
+        point2node = {}
+        pipe2block = {}
+
+        # Nodes/Blocks lists initialising
+        nodes = []
+        blocks = []
+        wall_nodes = []
+
+        # Counts initialising
+        node_count = 0
+        block_count = 0
+
+        # Loop on every hydraulic pipe to create thermal equivalence
+        for pipe in self.circuit.pipes:
+            block_nodes = []
+            for point in pipe.active_points:
+                if point not in point2node.keys():
+                    node = th.Node('h'+str(node_count))
+                    node_count += 1
+                    point2node[point] = node
+                else:
+                    node = point2node[point]
+                block_nodes.append(node)
+            if pipe.__class__ == hyp.JunctionPipe:
+                # Junction pipe doesn't exchange heat
+                j_flows = [self.j_flows[(pipe, point)] for point in pipe.active_points]
+                flows = [self.solution[j] for j in j_flows]
+                input_indices = [index for index, flow in enumerate(flows) if flow >= 0]
+                input_nodes = [node for index, node in enumerate(block_nodes)\
+                               if index in input_indices]
+                output_nodes = [node for index, node in enumerate(block_nodes)\
+                                if index not in input_indices]
+                input_flows = [flow for index, flow in enumerate(flows)\
+                               if index in input_indices]
+                block = th.Junction(input_nodes,
+                                    output_nodes,
+                                    input_flows,
+                                    self.circuit.fluid,
+                                    'b'+str(block_count))
+
+            else:
+                # Other pipes
+                j = self.j_flows[(pipe, pipe.points[0])]
+                th_node = th.Node('t'+str(block_count))
+                wall_nodes.append(th_node)
+                nodes.append(th_node)
+                block = th.ThermalPipe(block_nodes + [th_node],
+                                       self.solution[j],
+                                       self.circuit.fluid,
+                                       'b'+str(block_count))
+
+            block_count += 1
+            pipe2block[pipe] = block
+            for node in block.nodes:
+                if node not in nodes:
+                    nodes.append(node)
+            blocks.append(block)
+
+        interface_nodes = {'input' : [point2node[fip] for fip in fluid_input_points],
+                           'wall_nodes' : wall_nodes,
+                           'output' : [point2node[fop] for fop in fluid_output_points]}
+
+        thermal_circuit = th.Circuit(nodes, blocks)
+        thermohydraulic_ciruit = th.ThermohydraulicCircuit(self.circuit,
+                                                           thermal_circuit,
+                                                           interface_nodes,
+                                                           point2node,
+                                                           pipe2block)
+        return thermohydraulic_ciruit
+
+    def DisplaySolution(self, x3D=vm.x3D, y3D=vm.y3D,
                         position=False,
                         color_map=None,
-                        values=False,
-                        max_width=7):
+                        max_width=0.025):
         """
         Displays the solution : [pressure,flow rate]
         Numbers are displayed with the number of digits
         position=True to display in circuit coordinates
         """
+        dictionaries = self.circuit.NumberElements()
+        pressures_dict, flows_dict = dictionaries[:2]
+        graph = self.circuit.graph
+
+        points = [point for point in graph.nodes if graph.nodes[point]['node_type'] == 'point']
+        pipes = [pipe for pipe in graph.nodes if graph.nodes[pipe]['node_type'] == 'pipe']
+        pipe_points_couples = [(pipe, point) for pipe in pipes\
+                               for point in pipe.active_points]
+        flows = {}
+
         if position:
-            graph_pos = {node:node.vector for node in list(self.circuit.graph.nodes)}
-            plt.figure("Solution in circuit coordinates")
+            # Points positions
+            graph_pos = {point : npy.array((npy.dot(point.vector, x3D.vector),
+                                            npy.dot(point.vector, y3D.vector)))\
+                         for point in list(self.circuit.graph.nodes)\
+                         if graph.nodes[point]['node_type'] == 'point'}
+
+            # Pipes positions : centroid of points
+            for pipe in pipes:
+                coords = npy.asarray([point.vector for point in pipe.active_points])
+                length = coords.shape[0]
+                sum_x = npy.sum(coords[:, 0])
+                sum_y = npy.sum(coords[:, 1])
+                graph_pos[pipe] = npy.array((sum_x/length, sum_y/length))
         else:
             graph_pos = nx.kamada_kawai_layout(self.circuit.graph)
-            plt.figure("Solution")
 
-        if values:
-            # Format Data
-            dict_press = {point : "%.{}E".format(digits) % (pressure)\
-                          for point, pressure in self.dict_press}
-            dict_flows = {pipe : "%.{}E".format(digits) % (flow)\
-                          for pipe, flow in self.dict_flows}
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
 
-            labels_dict = {node : dict_press[node]\
-                           for node in list(self.circuit.graph.nodes)}
-            dict_edges = nx.get_edge_attributes(self.circuit.graph, 'object')
-            labels_edge_dict = {edge : dict_flows[dict_edges[edge]]\
-                                for edge in list(self.circuit.graph.edges)}
+        for ppc in pipe_points_couples:
+            if ppc in flows_dict.keys():
+                index = flows_dict[ppc]
+                flows[ppc] = self.solution[index]
+            else:
+                edge_position = (graph_pos[ppc[0]], graph_pos[ppc[1]])
+                x = [edge_position[0][0], edge_position[1][0]]
+                y = [edge_position[0][1], edge_position[1][1]]
+                ax.plot(x, y, 'k-')
 
-            # Display
-            nx.draw_networkx(self.circuit.graph,
-                             pos=graph_pos,
-                             labels=labels_dict,
-                             withlabels=True,
-                             node_color='c')
-            nx.draw_networkx_edge_labels(self.circuit.graph,
-                                         pos=graph_pos,
-                                         edge_labels=labels_edge_dict,
-                                         withlabels=True,
-                                         font_size=7)
-        else:
-            width = float(max_width/max(self.dict_flows.values()))
-            press_color = [self.dict_press[node]\
-                           for node in list(self.circuit.graph.nodes)]
-            dic_edges = nx.get_edge_attributes(self.circuit.graph, 'object')
-            flow_width = [width*self.dict_flows[dic_edges[edge]]\
-                          for edge in list(self.circuit.graph.edges)]
+        width = float(max_width/max(flows.values()))
 
-            # Display
-            press_pts = nx.draw_networkx_nodes(self.circuit.graph,
-                                               pos=graph_pos,
-                                               node_color=press_color,
-                                               cmap=color_map)
-            nx.draw_networkx_edges(self.circuit.graph,
-                                   pos=graph_pos,
-                                   width=0.5,
-                                   style='dashed')
-            nx.draw_networkx_edges(self.circuit.graph,
-                                   pos=graph_pos,
-                                   width=flow_width,
-                                   edge_color='k')
-            plt.colorbar(press_pts)
+        for ppc, flow in flows.items():
+            add_link = False
+            if flow < 0:
+                # From block to node
+                edge_position = (graph_pos[ppc[0]], graph_pos[ppc[1]])
+            elif flow > 0:
+                # From node to block
+                edge_position = (graph_pos[ppc[1]], graph_pos[ppc[0]])
+            else:
+                add_link = True
+
+            if add_link:
+                edge_position = (graph_pos[ppc[0]], graph_pos[ppc[1]])
+                x = [edge_position[0][0], edge_position[1][0]]
+                y = [edge_position[0][1], edge_position[1][1]]
+                ax.plot(x, y, 'k-')
+            else:
+                x = edge_position[0][0]
+                y = edge_position[0][1]
+                dx = edge_position[1][0] - x
+                dy = edge_position[1][1] - y
+                ax.add_patch(patches.FancyArrow(x, y, dx, dy, width=abs(width*flow),
+                                                length_includes_head=True,
+                                                head_width=abs(width*flow)*2,
+                                                edgecolor='k',
+                                                facecolor='gray'))
+
+        press_values = [self.solution[pressures_dict[point]] for point in points]
+
+        press_pts = nx.draw_networkx_nodes(graph,
+                                           pos=graph_pos,
+                                           nodelist=points,
+                                           node_color=press_values,
+                                           node_size=100,
+                                           cmap=color_map)
+        nx.draw_networkx_nodes(graph,
+                               pos=graph_pos,
+                               nodelist=pipes,
+                               node_shape='s',
+                               node_color='k',
+                               node_size=50)
+
+        ax.axis('equal')
+        plt.colorbar(press_pts)
     
