@@ -28,7 +28,7 @@ ctr_LD = [0, 6.5, 11, 15]
 
 class Circuit:
     """
-    general class for 2D circuits
+    General class for 2D/3D circuits
     """
     def __init__(self, points, pipes, boundary_conditions, fluid):
         self.points = points
@@ -254,6 +254,11 @@ class Circuit2D(Circuit):
         return points_lim
 
 class Circuit3D(Circuit):
+    """
+    3D circuit
+    
+    """
+    
     def __init__(self, points, pipes, boundary_conditions, fluid):
         Circuit.__init__(self, points, pipes, boundary_conditions, fluid)
 
