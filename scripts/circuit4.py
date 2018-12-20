@@ -10,7 +10,7 @@ import hydraulic as hy
 from hydraulic.fluids import water
 import volmdlr as vm
 
-diameter = 0.005
+diameter = 0.008
 
 T_liq = 20
 dP = 1e5
