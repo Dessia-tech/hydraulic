@@ -253,24 +253,40 @@ class UserDefined(SingularPipe):
     L/D equivalent ratios for different values of the parameter.
     """
     def __init__(self, p1, p2,
-                 diameter,
-                 param_values,
-                 LD_values,
-                 *params,
+                 fQ,
                  heat_exchange=True,
                  name=''):
         SingularPipe.__init__(self, p1, p2, 'usr', heat_exchange, name)
-        self.radius = diameter/2
-        self.surf = math.pi*self.radius**2
-        self.length = p1.PointDistance(p2)
-        length_d = GetEquivalent(param_values, LD_values, *params)
-        self.fQ = 16*2*length_d/(math.pi*self.radius**3)
+#        self.radius = diameter/2
+#        self.surf = math.pi*self.radius**2
+#        self.length = p1.PointDistance(p2)
+#        length_d = GetEquivalent(param_values, LD_values, *params)
+        self.fQ = fQ
+        self.n_equations = 2
+        
+    def SystemMatrix(self, constant):
+        system_matrix = npy.array([[-constant, self.fQ, constant, 0],
+                                   [0, 1, 0, 1]])
+        return system_matrix
+        
+    def CADVolume(self):
+        axis = self.points[1] - self.points[0]
+        l = axis.Norm()
+        axis.Normalize()
+        
+        return p3D.HollowCylinder(0.5*(self.points[0] + self.points[1]), axis,
+                                  0.001, 0.002,
+                                  l,
+                                  name=self.name)
 
     def Repr1D(self, j, points_index):
         # Returns the 1D representation of the pipe for gmsh
         line = "Line({}) = [{},{}];\n".format(j, points_index[self.points[0]],
                                               points_index[self.points[1]])
         return (line, [j])
+
+    def Draw(self, x3D, y3D, ax=None):
+        pass
 
 class JunctionPipe:
     """
