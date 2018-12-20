@@ -52,10 +52,10 @@ boundary_conditions = [hy.PressureCondition(points[0], dP), hy.PressureCondition
 circuit = hy.Circuit3D(points, pipes, boundary_conditions, water)
 
 # Fluidics calculations
-result = circuit.SolveFluidics()
+fluidics_result = circuit.SolveFluidics()
 
 # Hydraulic to thermal
-thermohydraulic_circuit = result.ToThermal([points[0]], [points[-1]])
+thermohydraulic_circuit = fluidics_result.ToThermal([points[0]], [points[-1]])
 
 # Add Resistors
 for i, (pipe, block) in enumerate(thermohydraulic_circuit.pipe2block.items()):
@@ -77,6 +77,5 @@ for output_node in thermohydraulic_circuit.interface_nodes['output']:
     boundary_conditions.append(hf_condition)
     
 thermohydraulic_circuit.thermal_circuit.AddBlocks(boundary_conditions)
-
-th_result = thermohydraulic_circuit.thermal_circuit.Solve()
-th_result.Display()
+thermal_results = thermohydraulic_circuit.thermal_circuit.Solve()
+thermal_results.Display()
