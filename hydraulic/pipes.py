@@ -113,6 +113,7 @@ class SingularPipe:
     def SystemMatrix(self, constant):
         system_matrix = npy.array([[-constant, self.fQ, constant, 0],
                                    [0, 1, 0, 1]])
+        return system_matrix
 
 class Bend(SingularPipe):
     """
@@ -133,9 +134,9 @@ class Bend(SingularPipe):
         self.section = math.pi*self.radius**2
         self.length = self.turn_radius*self.turn_angle
         length_d = GetEquivalent(abs(self.turn_angle*180/math.pi), ben_LD, ben_angle)
+        print(length_d)
         self.fQ = 16*2*length_d/(math.pi*self.radius**3)
         self.n_equations = 2
-        return system_matrix
 
     def Repr1D(self, j, points_index):
         # Returns the 1D representation of the pipe for gmsh
@@ -333,7 +334,7 @@ class JunctionPipe:
         system_matrix = npy.array(matrix_generator)
         return system_matrix
 
-    def Draw(self, ax=None):
+    def Draw(self, x3D=vm.x3D, y3D=vm.y3D, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
