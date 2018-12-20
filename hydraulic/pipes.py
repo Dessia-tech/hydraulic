@@ -110,6 +110,11 @@ class SingularPipe:
     def __str__(self):
         return "{}-{}-{}".format(self.points[0], self.type, self.points[1])
 
+    def SystemMatrix(self, constant):
+        system_matrix = npy.array([[-constant, self.fQ, constant, 0],
+                                   [0, 1, 0, 1]])
+        return system_matrix
+
 class Bend(SingularPipe):
     """
     Bend between two points, defined by third, interior point
@@ -129,13 +134,9 @@ class Bend(SingularPipe):
         self.section = math.pi*self.radius**2
         self.length = self.turn_radius*self.turn_angle
         length_d = GetEquivalent(abs(self.turn_angle*180/math.pi), ben_LD, ben_angle)
+        print(length_d)
         self.fQ = 16*2*length_d/(math.pi*self.radius**3)
         self.n_equations = 2
-
-    def SystemMatrix(self, constant):
-        system_matrix = npy.array([[-constant, self.fQ, constant, 0],
-                                   [0, 1, 0, 1]])
-        return system_matrix
 
     def Repr1D(self, j, points_index):
         # Returns the 1D representation of the pipe for gmsh
@@ -247,6 +248,31 @@ class Contraction(SingularPipe):
                                               points_index[self.points[1]])
         return (line, [j])
 
+#class UserDefined(SingularPipe):
+#    """
+#    Singular Pipe defined by user with a known parameter and different
+#    L/D equivalent ratios for different values of the parameter.
+#    """
+#    def __init__(self, p1, p2,
+#                 diameter,
+#                 param_values,
+#                 LD_values,
+#                 *params,
+#                 heat_exchange=True,
+#                 name=''):
+#        SingularPipe.__init__(self, p1, p2, 'usr', heat_exchange, name)
+#        self.radius = diameter/2
+#        self.surf = math.pi*self.radius**2
+#        self.length = p1.PointDistance(p2)
+#        length_d = GetEquivalent(param_values, LD_values, *params)
+#        self.fQ = 16*2*length_d/(math.pi*self.radius**3)
+#
+#    def Repr1D(self, j, points_index):
+#        # Returns the 1D representation of the pipe for gmsh
+#        line = "Line({}) = [{},{}];\n".format(j, points_index[self.points[0]],
+#                                              points_index[self.points[1]])
+#        return (line, [j])
+
 class UserDefined(SingularPipe):
     """
     Singular Pipe defined by user with a known parameter and different
@@ -257,10 +283,6 @@ class UserDefined(SingularPipe):
                  heat_exchange=True,
                  name=''):
         SingularPipe.__init__(self, p1, p2, 'usr', heat_exchange, name)
-#        self.radius = diameter/2
-#        self.surf = math.pi*self.radius**2
-#        self.length = p1.PointDistance(p2)
-#        length_d = GetEquivalent(param_values, LD_values, *params)
         self.fQ = fQ
         self.n_equations = 2
         
@@ -331,7 +353,7 @@ class JunctionPipe:
         system_matrix = npy.array(matrix_generator)
         return system_matrix
 
-    def Draw(self, ax=None):
+    def Draw(self, x3D=vm.x3D, y3D=vm.y3D, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)

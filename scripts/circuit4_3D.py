@@ -10,7 +10,7 @@ import hydraulic.thermal as th
 from hydraulic.fluids import water
 import volmdlr as vm
 
-diameter = 0.005
+diameter = 0.010
 
 T_liq = 20
 dP = 1e5
@@ -64,7 +64,7 @@ for i, (pipe, block) in enumerate(thermohydraulic_circuit.pipe2block.items()):
     and wall_node in thermohydraulic_circuit.interface_nodes['wall_nodes']:
         condition_node = th.Node('thf'+str(i))
         hf_condition = th.HeatFlowInBound([condition_node], -100, 'bc'+str(i))
-        thermohydraulic_circuit.thermal_circuit.AddResistor(wall_node, 1, 1, hf_condition)
+        thermohydraulic_circuit.thermal_circuit.AddResistor(wall_node, 10, 1, hf_condition)
 
 # Add boundary conditions
 boundary_conditions = []
@@ -79,4 +79,3 @@ for output_node in thermohydraulic_circuit.interface_nodes['output']:
 thermohydraulic_circuit.thermal_circuit.AddBlocks(boundary_conditions)
 thermal_results = thermohydraulic_circuit.thermal_circuit.Solve()
 thermal_results.Display()
-
