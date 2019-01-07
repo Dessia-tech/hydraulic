@@ -98,38 +98,60 @@ class Circuit:
                          withlabels=True,
                          fontweight="bold")
 
-    def NumberElements(self):
+    def ResolutionSettings(self):
         pressures_dict = {}
         flows_dict = {}
         equations_dict = {}
-        couples = []
-        n_lines = 0
+#        couples = []
+#        n_lines = 0
+        nvars = 0
+        neqs = 0
 
-        for j, point in enumerate(self.points):
-            pressures_dict[point] = j
-            for pipe in self.pipes + self.boundary_conditions:
-                if point in pipe.active_points and (pipe, point) not in couples:
-                    couples.append((pipe, point))
+        for point in self.points:
+            pressures_dict[point] = nvars
+            nvars += 1
+#            neqs += 1
 
-        j_origin = j + 1
-        for j, couple in enumerate(couples):
-            j_real = j_origin + j
-            flows_dict[couple] = j_real
 
-        for pipe in self.pipes + self.boundary_conditions:
-            equations_dict[pipe] = range(n_lines, n_lines + pipe.n_equations)
-            n_lines += pipe.n_equations
+        for pipe in self.pipes:
+            for point in pipe.active_points:
+                flows_dict[(pipe, point)] = nvars
+                nvars += 1
+                
+            equations_dict[pipe] = range(neqs, neqs + pipe.n_equations)
+            neqs += pipe.n_equations
 
-        return pressures_dict, flows_dict, equations_dict
+        # Counting equations for boundary conditions
+        for bc in self.boundary_conditions:
+            for point in bc.active_points:
+                flows_dict[(bc, point)] = nvars
+                nvars += 1
+                
+            equations_dict[bc] = range(neqs, neqs + bc.n_equations)
+            neqs += bc.n_equations
+           
+        points2pipes = self.Point2Pipes()
+        for point in self.points:
+            active = False
+            pipes = points2pipes[point]
+            for pipe in pipes:
+                if point in pipe.active_points:
+                    active = True
+                    break
+            if active:
+                neqs += 1
+
+
+        return pressures_dict, flows_dict, equations_dict, neqs, nvars
 
     def SystemMatrix(self, constant):
-        pressures_dict, flows_dict, equations_dict = self.NumberElements()
-        junctions = [pipe for pipe in self.pipes if pipe.__class__ == hyp.JunctionPipe]
-        n_equations = sum(pipe.n_equations for pipe in self.pipes + self.boundary_conditions)\
-                          + len(self.points)\
-                          - len(junctions) # !!!
-        n_variables = len(pressures_dict.keys()) + len(flows_dict.keys())
-        system_matrix = npy.zeros((n_equations, n_variables))
+        pressures_dict, flows_dict, equations_dict, neqs, nvars = self.ResolutionSettings()
+#        junctions = [pipe for pipe in self.pipes if pipe.__class__ == hyp.JunctionPipe]
+#        n_equations = sum(pipe.n_equations for pipe in self.pipes + self.boundary_conditions)\
+#                          + len(self.points)\
+#                          - len(junctions) # !!!
+#        n_variables = len(pressures_dict.keys()) + len(flows_dict.keys())
+        system_matrix = npy.zeros((neqs, nvars))
         points2pipes = self.Point2Pipes()
 
         # Write blocks equations
@@ -143,7 +165,6 @@ class Circuit:
                     j_press_local = 2*j
                     j_press_global = pressures_dict[point]
                     system_matrix[i_global][j_press_global] = block_system_matrix[i_local][j_press_local]
-
                     if point in pipe.active_points:
                         j_flow_local = 2*j + 1
                         j_flow_global = flows_dict[(pipe, point)]
@@ -156,6 +177,7 @@ class Circuit:
             for pipe in pipes:
                 if point in pipe.active_points:
                     j_flow_global = flows_dict[(pipe, point)]
+#                    print(i,j_flow_global)
                     system_matrix[i][j_flow_global] = 1
                     valid = True
             if valid:
@@ -174,7 +196,7 @@ class Circuit:
                for output points specify "out" as value
                output points will be set at pressure = low_p
         """
-        dictionaries = self.NumberElements()
+        dictionaries = self.ResolutionSettings()
         equations_dict = dictionaries[2]
 
         constant = 2/(self.fluid.rho*self.fluid.nu)
@@ -312,13 +334,14 @@ class FlowCondition:
 
 class FluidicsResults:
     def __init__(self, circuit, system_matrix, vector_b, solution):
+        # TODO: Don't give system matrix to hydraulic circuit
         self.circuit = circuit
         self.system_matrix = system_matrix
         self.vector_b = vector_b
         self.solution = solution
         self.vect_p = []
         self.vect_q = []
-        self.j_pressures, self.j_flows, self.i_equations = circuit.NumberElements()
+        self.j_pressures, self.j_flows, self.i_equations, neqs, nvars = circuit.ResolutionSettings()
         for j, value in enumerate(solution):
             if j in self.j_pressures.values():
                 self.vect_p.append(value)

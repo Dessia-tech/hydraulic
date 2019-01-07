@@ -41,11 +41,11 @@ class StraightPipe:
         self.n_equations = 2
         self.name = name
 
-    def __repr__(self):
-        return "{}-str-{}".format(self.points[0], self.points[1])
+#    def __repr__(self):
+#        return "{}-str-{}".format(self.points[0], self.points[1])
 
     def __str__(self):
-        return "{}-str-{}".format(self.points[0], self.points[1])
+        return "{} from {} to {}".format(self.__class__.__name__, self.points[0], self.points[1])
 
     def SystemMatrix(self, constant):
         system_matrix = npy.array([[-constant, self.fQ, constant, 0],
@@ -104,8 +104,8 @@ class SingularPipe:
         self.heat_exchange = heat_exchange
         self.name = name
 
-    def __repr__(self):
-        return "{}-{}-{}".format(self.points[0], self.type, self.points[1])
+#    def __repr__(self):
+#        return "{}-{}-{}".format(self.points[0], self.type, self.points[1])
 
     def __str__(self):
         return "{}-{}-{}".format(self.points[0], self.type, self.points[1])
@@ -330,8 +330,6 @@ class JunctionPipe:
         length_d = [length/diameter for length in self.lengths]
         self.fQs = [16*2*ld/(math.pi*self.radius**3) for ld in length_d]
 
-    def __repr__(self):
-        return "{}-jun-{}".format(self.central_point, len(self.active_points))
 
     def __str__(self):
         return "{}-jun-{}".format(self.central_point, len(self.active_points))
