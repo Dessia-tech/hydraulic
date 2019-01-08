@@ -102,16 +102,12 @@ class Circuit:
         pressures_dict = {}
         flows_dict = {}
         equations_dict = {}
-#        couples = []
-#        n_lines = 0
         nvars = 0
         neqs = 0
 
         for point in self.points:
             pressures_dict[point] = nvars
             nvars += 1
-#            neqs += 1
-
 
         for pipe in self.pipes:
             for point in pipe.active_points:
@@ -141,16 +137,10 @@ class Circuit:
             if active:
                 neqs += 1
 
-
         return pressures_dict, flows_dict, equations_dict, neqs, nvars
 
     def SystemMatrix(self, constant):
         pressures_dict, flows_dict, equations_dict, neqs, nvars = self.ResolutionSettings()
-#        junctions = [pipe for pipe in self.pipes if pipe.__class__ == hyp.JunctionPipe]
-#        n_equations = sum(pipe.n_equations for pipe in self.pipes + self.boundary_conditions)\
-#                          + len(self.points)\
-#                          - len(junctions) # !!!
-#        n_variables = len(pressures_dict.keys()) + len(flows_dict.keys())
         system_matrix = npy.zeros((neqs, nvars))
         points2pipes = self.Point2Pipes()
 
@@ -177,7 +167,6 @@ class Circuit:
             for pipe in pipes:
                 if point in pipe.active_points:
                     j_flow_global = flows_dict[(pipe, point)]
-#                    print(i,j_flow_global)
                     system_matrix[i][j_flow_global] = 1
                     valid = True
             if valid:
@@ -209,7 +198,7 @@ class Circuit:
 
         # Solve
         solution = solve(system_matrix, vector_b)
-        result = FluidicsResults(self, system_matrix, vector_b, solution)
+        result = FluidicsResults(self, solution)
         return result
 
     def VerifyQ(self):
@@ -333,25 +322,12 @@ class FlowCondition:
         return system_matrix
 
 class FluidicsResults:
-    def __init__(self, circuit, system_matrix, vector_b, solution):
-        # TODO: Don't give system matrix to hydraulic circuit
+    def __init__(self, circuit, solution):
         self.circuit = circuit
-        self.system_matrix = system_matrix
-        self.vector_b = vector_b
         self.solution = solution
-        self.vect_p = []
-        self.vect_q = []
-        self.j_pressures, self.j_flows, self.i_equations, neqs, nvars = circuit.ResolutionSettings()
-        for j, value in enumerate(solution):
-            if j in self.j_pressures.values():
-                self.vect_p.append(value)
-            elif j in self.j_flows.values():
-                self.vect_q.append(value)
-        self.dict_press = {point : self.vect_p[i]\
-                           for i, point in enumerate(circuit.points)}
-        self.dict_flows = {pipe : self.vect_q[i]\
-                           for i, pipe in enumerate(circuit.pipes + circuit.boundary_conditions)}
-
+        system_data = circuit.ResolutionSettings()
+        self.flows_dict = system_data[1]
+        
     def ToThermal(self, fluid_input_points, fluid_output_points):
         """
         Converts hydraulic circuit to thermal
@@ -382,8 +358,8 @@ class FluidicsResults:
                 block_nodes.append(node)
             if pipe.__class__ == hyp.JunctionPipe:
                 # Junction pipe doesn't exchange heat
-                j_flows = [self.j_flows[(pipe, point)] for point in pipe.active_points]
-                flows = [self.solution[j] for j in j_flows]
+                flows_dict = [self.flows_dict[(pipe, point)] for point in pipe.active_points]
+                flows = [self.solution[j] for j in flows_dict]
                 input_indices = [index for index, flow in enumerate(flows) if flow >= 0]
                 input_nodes = [node for index, node in enumerate(block_nodes)\
                                if index in input_indices]
@@ -399,7 +375,7 @@ class FluidicsResults:
 
             else:
                 # Other pipes
-                j = self.j_flows[(pipe, pipe.points[0])]
+                j = self.flows_dict[(pipe, pipe.points[0])]
                 th_node = th.Node('t'+str(block_count))
                 wall_nodes.append(th_node)
                 nodes.append(th_node)
@@ -436,7 +412,7 @@ class FluidicsResults:
         Numbers are displayed with the number of digits
         position=True to display in circuit coordinates
         """
-        dictionaries = self.circuit.NumberElements()
+        dictionaries = self.circuit.ResolutionSettings()
         pressures_dict, flows_dict = dictionaries[:2]
         graph = self.circuit.graph
 

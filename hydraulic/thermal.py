@@ -313,9 +313,10 @@ class Circuit:
     def AddResistor(self, node,
                     resistance_factor, area_factor,
                     boundary_condition):
-        resistor = Resistor([node, boundary_condition.nodes[0]],
+        bc_node = boundary_condition.nodes[0]
+        resistor = Resistor([node, bc_node],
                             resistance_factor, area_factor)
-        self.nodes.append(boundary_condition.nodes[0])
+        self.nodes.append(bc_node)
         self.blocks.extend([resistor, boundary_condition])
         self.Update()
 
