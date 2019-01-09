@@ -13,6 +13,7 @@ from matplotlib import patches
 from hydraulic.fluids import water
 import volmdlr as vm
 
+
 class Node:
     """
     Defines a thermal node
@@ -22,6 +23,7 @@ class Node:
 
     def __str__(self):
         return self.name
+
 
 class Block:
     """
@@ -39,6 +41,7 @@ class Block:
         n_equations = self.system_matrix.shape[0]
         return n_equations
     n_equations = property(_get_n_equations)
+
 
 class Resistor(Block):
     """
@@ -63,6 +66,7 @@ class Resistor(Block):
         matrix = npy.array([[-self.resistance, 1, self.resistance, 0],
                             [0, 1, 0, 1]])
         return matrix
+
 
 class ThermalPipe(Block):
     """
@@ -95,6 +99,7 @@ class ThermalPipe(Block):
     def UpdateFluid(self, new_fluid):
         self.fluid = new_fluid
         self.system_matrix = self.SystemMatrix()
+
 
 class Junction(Block):
     """
@@ -169,6 +174,7 @@ class Junction(Block):
         self.fluid = new_fluid
         self.system_matrix = self.SystemMatrix()
 
+
 class NodeEquivalence(Block):
     """
     Defines a link between 3 thermal nodes
@@ -196,6 +202,7 @@ class NodeEquivalence(Block):
         index = self.nodes.index(old_node)
         self.nodes[index] = new_node
 
+
 class TemperatureBound(Block):
     """
     Defines bounds conditions
@@ -212,6 +219,7 @@ class TemperatureBound(Block):
         """
         system_matrix = npy.array([[1, 0]])
         return system_matrix
+
 
 class HeatFlowInBound(Block):
     """
@@ -230,6 +238,7 @@ class HeatFlowInBound(Block):
         system_matrix = npy.array([[0, 1]])
         return system_matrix
 
+
 class HeatFlowOutBound(Block):
     """
     Defines bounds conditions
@@ -243,6 +252,7 @@ class HeatFlowOutBound(Block):
         TODO Docstring
         """
         return npy.empty((0, 0))
+
 
 class Circuit:
     """
@@ -440,6 +450,7 @@ class Circuit:
                                node_size=50)
         nx.draw_networkx_edges(self.graph, graph_pos)
 
+
 class ThermalResult:
     """
     Defines a thermal circuit solution
@@ -450,77 +461,119 @@ class ThermalResult:
         self.vector_b = vector_b
         self.solution = solution
 
-    def Display(self, color_map='jet', max_width=0.01):
+    def Display(self, ax=None, color_map='jet', max_width=0.01,
+                position=None, x3D=vm.x3D, y3D=vm.y3D):
         """
         Displays solution as a kamada-kawai graph layout
         """
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+
         graph = self.circuit.graph
 
-        graph_pos = nx.kamada_kawai_layout(graph)
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        nodes = [node for node in graph.nodes() if graph.nodes[node]['node_type'] == 'node']
+        blocks = [node for node in graph.nodes() if graph.nodes[node]['node_type'] == 'block']
 
-        nodes = [node for node in graph.nodes if graph.nodes[node]['node_type'] == 'node']
-        blocks = [node for node in graph.nodes if graph.nodes[node]['node_type'] == 'block']
-        block_node_couples = [(block, node) for block in blocks for node in block.nodes]
-        heat_flows = {}
-        for bnc in block_node_couples:
-            if bnc in self.circuit.flows_dict.keys():
-                index = self.circuit.flows_dict[bnc]
-                heat_flows[bnc] = self.solution[index]
-            else:
-                edge_position = (graph_pos[bnc[0]], graph_pos[bnc[1]])
-                x = [edge_position[0][0], edge_position[1][0]]
-                y = [edge_position[0][1], edge_position[1][1]]
-                ax.plot(x, y, 'k-')
+        if position is None:
+            graph_pos = nx.kamada_kawai_layout(graph)
 
-        width = float(max_width/max(heat_flows.values()))
+            block_node_couples = [(block, node) for block in blocks for node in block.nodes]
+            heat_flows = {}
+            for bnc in block_node_couples:
+                if bnc in self.circuit.flows_dict.keys():
+                    index = self.circuit.flows_dict[bnc]
+                    heat_flows[bnc] = self.solution[index]
+                else:
+                    edge_position = (graph_pos[bnc[0]], graph_pos[bnc[1]])
+                    x = [edge_position[0][0], edge_position[1][0]]
+                    y = [edge_position[0][1], edge_position[1][1]]
+                    ax.plot(x, y, 'k-')
+    
+            width = float(max_width/max(heat_flows.values()))
+    
+            for bnc, heat_flow in heat_flows.items():
+                add_link = False
+                if heat_flow < 0:
+                    # From block to node
+                    edge_position = (graph_pos[bnc[0]], graph_pos[bnc[1]])
+                elif heat_flow > 0:
+                    # From node to block
+                    edge_position = (graph_pos[bnc[1]], graph_pos[bnc[0]])
+                else:
+                    add_link = True
+    
+                if add_link:
+                    edge_position = (graph_pos[bnc[0]], graph_pos[bnc[1]])
+                    x = [edge_position[0][0], edge_position[1][0]]
+                    y = [edge_position[0][1], edge_position[1][1]]
+                    ax.plot(x, y, 'k-')
+                else:
+                    x = edge_position[0][0]
+                    y = edge_position[0][1]
+                    dx = edge_position[1][0] - x
+                    dy = edge_position[1][1] - y
+                    ax.add_patch(patches.FancyArrow(x, y, dx, dy, width=abs(width*heat_flow),
+                                                    length_includes_head=True,
+                                                    head_width=abs(width*heat_flow)*2,
+                                                    edgecolor='k',
+                                                    facecolor='gray'))
 
-        for bnc, heat_flow in heat_flows.items():
-            add_link = False
-            if heat_flow < 0:
-                # From block to node
-                edge_position = (graph_pos[bnc[0]], graph_pos[bnc[1]])
-            elif heat_flow > 0:
-                # From node to block
-                edge_position = (graph_pos[bnc[1]], graph_pos[bnc[0]])
-            else:
-                add_link = True
+            temp_values = [self.solution[self.circuit.temperature_dict[node]] for node in nodes]
+    
+            temp_pts = nx.draw_networkx_nodes(graph,
+                                              pos=graph_pos,
+                                              nodelist=nodes,
+                                              node_color=temp_values,
+                                              node_size=100,
+                                              cmap=color_map)
+            nx.draw_networkx_nodes(graph,
+                                   pos=graph_pos,
+                                   nodelist=blocks,
+                                   node_shape='s',
+                                   node_color='k',
+                                   node_size=10)
+        else:
+            graph_pos = {node : (point.Dot(x3D), point.Dot(y3D))
+                         for node, point in position.items()}
+            nodes = graph_pos.keys()
+            
+            # Blocks positions : centroid of points
+            block_pos = {}
+            for block in list(blocks):
+                if IsHydraulicBlock(block):
+                    coords = npy.asarray([graph_pos[n] for n in block.nodes if n in nodes])
+                    length = coords.shape[0]
+                    sum_x = npy.sum(coords[:, 0])
+                    sum_y = npy.sum(coords[:, 1])
+                    block_pos[block] = npy.array((sum_x/length, sum_y/length))
 
-            if add_link:
-                edge_position = (graph_pos[bnc[0]], graph_pos[bnc[1]])
-                x = [edge_position[0][0], edge_position[1][0]]
-                y = [edge_position[0][1], edge_position[1][1]]
-                ax.plot(x, y, 'k-')
-            else:
-                x = edge_position[0][0]
-                y = edge_position[0][1]
-                dx = edge_position[1][0] - x
-                dy = edge_position[1][1] - y
-                ax.add_patch(patches.FancyArrow(x, y, dx, dy, width=abs(width*heat_flow),
-                                                length_includes_head=True,
-                                                head_width=abs(width*heat_flow)*2,
-                                                edgecolor='k',
-                                                facecolor='gray'))
+            edges = [edge for edge in graph.edges() if edge[0] in nodes and edge[1] in block_pos.keys()]
 
-
-        temp_values = [self.solution[self.circuit.temperature_dict[node]] for node in nodes]
-
-        temp_pts = nx.draw_networkx_nodes(graph,
-                                          pos=graph_pos,
-                                          nodelist=nodes,
-                                          node_color=temp_values,
-                                          node_size=100,
-                                          cmap=color_map)
-        nx.draw_networkx_nodes(graph,
-                               pos=graph_pos,
-                               nodelist=blocks,
-                               node_shape='s',
-                               node_color='k',
-                               node_size=50)
+            temp_values = [self.solution[self.circuit.temperature_dict[node]] for node in nodes]
+    
+            temp_pts = nx.draw_networkx_nodes(graph,
+                                              pos=graph_pos,
+                                              nodelist=nodes,
+                                              node_color=temp_values,
+                                              node_size=100,
+                                              cmap=color_map)
+            nx.draw_networkx_nodes(graph,
+                                   pos=block_pos,
+                                   nodelist=block_pos.keys(),
+                                   node_shape='s',
+                                   node_color='k',
+                                   node_size=10)
+            
+            graph_pos.update(block_pos)
+            nx.draw_networkx_edges(graph,
+                                   pos=graph_pos,
+                                   edgelist=edges)
+            
 
         ax.axis('equal')
         plt.colorbar(temp_pts)
+
 
 class ThermohydraulicCircuit:
     def __init__(self, hydraulic_circuit, thermal_circuit,
@@ -532,55 +585,58 @@ class ThermohydraulicCircuit:
         self.point2node = point2node
         self.pipe2block = pipe2block
 
-    def Draw(self, x3D=vm.x3D, y3D=vm.y3D, position=True):
+        self.node2point = {}
+        self.block2pipe = {}
+        for point, node in point2node.items():
+            self.node2point[node] = point
+        for pipe, block in pipe2block.items():
+            self.block2pipe[block] = pipe
+
+    def Draw(self, x3D=vm.x3D, y3D=vm.y3D, position=False):
         """
-        !!! Not Working
+        TODO Docstring
         """
         if position:
-            hydraulic_graph = self.hydraulic_circuit.graph
+            graph_pos = {node : (point.Dot(x3D), point.Dot(y3D))
+                         for node, point in self.node2point.items()}
+
             thermal_graph = self.thermal_circuit.graph
-
-            points = [point for point in hydraulic_graph.nodes
-                      if hydraulic_graph.nodes[point]['node_type'] == 'point']
-            pipes = [pipe for pipe in hydraulic_graph.nodes
-                     if hydraulic_graph.nodes[pipe]['node_type'] == 'pipe']
-            pipe_points_couples = [(pipe, point) for pipe in pipes\
-                                   for point in pipe.active_points]
-            # Nodes positions
-            graph_pos = {self.point2node[point] : npy.array((npy.dot(point.vector, x3D.vector),
-                                                             npy.dot(point.vector, y3D.vector)))\
-                         for point in list(self.hydraulic_circuit.graph.nodes)\
-                         if hydraulic_graph.nodes[point]['node_type'] == 'point'}
-
-            # Blocks positions : centroid of points
-            for pipe in pipes:
-                coords = npy.asarray([point.vector for point in pipe.active_points])
-                length = coords.shape[0]
-                sum_x = npy.sum(coords[:, 0])
-                sum_y = npy.sum(coords[:, 1])
-                block = self.pipe2block[pipe]
-                graph_pos[block] = npy.array((sum_x/length, sum_y/length))
-
-            nodes = [node for node in thermal_graph.nodes
-                     if thermal_graph.nodes[node]['node_type'] == 'node']
-            blocks = [node for node in thermal_graph.nodes
-                      if thermal_graph.nodes[node]['node_type'] == 'block']
-
+            nodes = graph_pos.keys()
+            
             nx.draw_networkx_nodes(thermal_graph,
                                    pos=graph_pos,
                                    nodelist=nodes,
                                    node_color='r',
                                    node_size=100)
+
+            # Blocks positions : centroid of points
+            block_pos = {}
+            for pipe in self.hydraulic_circuit.pipes:
+                coords = npy.asarray([(point.Dot(x3D), point.Dot(y3D)) for point in pipe.active_points])
+                length = coords.shape[0]
+                sum_x = npy.sum(coords[:, 0])
+                sum_y = npy.sum(coords[:, 1])
+                block = self.pipe2block[pipe]
+                block_pos[block] = npy.array((sum_x/length, sum_y/length))
+            
+            blocks = block_pos.keys()
             nx.draw_networkx_nodes(thermal_graph,
-                                   pos=graph_pos,
+                                   pos=block_pos,
                                    nodelist=blocks,
                                    node_shape='s',
                                    node_color='k',
-                                   node_size=50)
-            nx.draw_networkx_edges(thermal_graph, graph_pos)
+                                   node_size=10)
+            
+            graph_pos.update(block_pos)
+            edges = [edge for edge in thermal_graph.edges if edge[0] in nodes and edge[1] in blocks]
+                
+            nx.draw_networkx_edges(thermal_graph,
+                                   pos=graph_pos,
+                                   edgelist=edges)
 
         else:
             self.thermal_circuit.Draw()
+
 
 def IsHydraulicBlock(block):
     """
