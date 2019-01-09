@@ -62,8 +62,8 @@ class Resistor(Block):
     """
     Defines a thermal resistor
     """
-    def __init__(self, nodes, resistance_factor, area_factor, name=''):
-        self.resistance = resistance_factor/area_factor
+    def __init__(self, nodes, resistance, name=''):
+        self.resistance = resistance
 
         Block.__init__(self, nodes, nodes, name)
 
@@ -77,7 +77,7 @@ class Resistor(Block):
         Computes node equations system
         sum(phi) = 0
         """
-        matrix = npy.array([[-self.resistance, 1, self.resistance, 0],
+        matrix = npy.array([[-1, self.resistance, 1, 0],
                             [0, 1, 0, 1]])
         b = npy.array([0, 0])
         return matrix, b
@@ -266,11 +266,12 @@ class UnidimensionalMedium(Block):
     """
     Defines an unidimensional medium of length l
     """
-    def __init__(self, nodes, conductivity, length, name=''):
+    def __init__(self, nodes, conductivity, length, contact_area, name=''):
 #        self.resistance = resistance_factor/area_factor
 
         self.conductivity = conductivity
         self.length = length
+        self.contact_area = contact_area
         Block.__init__(self, nodes, nodes, name)
 
     def __str__(self):
@@ -283,9 +284,12 @@ class UnidimensionalMedium(Block):
         Computes node equations system
         sum(phi) = 0
         """
-        matrix = npy.array([[-self.resistance, 1, self.resistance, 0],
-                            [0, 1, 0, 1]])
-        return matrix
+        matrix = npy.array([[0, 1, 0, 1, 0, 1],
+                            [-1, self.length/self.conductivity/self.contact_area, 1, 0, 0, self.length*0.5/self.conductivity/self.contact_area],
+                            [-0.5, 0, -0.5, 0, 1, 0]])
+        rhs = npy.zeros(3)
+    
+        return matrix, rhs
 
 class Circuit:
     """
