@@ -57,6 +57,10 @@ class Circuit:
         for pipe in self.pipes:
             for point in pipe.active_points:
                 graph.add_edge(pipe, point)
+                
+        for bc in self.boundary_conditions:
+            graph.add_edge(bc, bc.points[0])
+        
         return graph
 
     def AddPoint(self, coordinates):
@@ -284,7 +288,8 @@ class Circuit3D(Circuit):
     def CADModel(self):
         pipes_primitives = []
         for pipe in self.pipes:
-            pipes_primitives.append(pipe.CADVolume())
+            if hasattr(pipe, 'CADVolume'):
+                pipes_primitives.append(pipe.CADVolume())
         model = vm.VolumeModel([('pipes', pipes_primitives)])
         return model
 
