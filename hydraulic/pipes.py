@@ -11,7 +11,7 @@ import numpy as npy
 import matplotlib.pyplot as plt
 import volmdlr as vm
 import volmdlr.primitives3D as p3D
-
+from copy import copy
 
 # Definition of equivalent L/D values
 # Lists in increasing order
@@ -41,9 +41,6 @@ class StraightPipe:
         self.n_equations = 2
         self.name = name
 
-#    def __repr__(self):
-#        return "{}-str-{}".format(self.points[0], self.points[1])
-
     def __str__(self):
         return "{} from {} to {}".format(self.__class__.__name__, self.points[0], self.points[1])
 
@@ -56,6 +53,13 @@ class StraightPipe:
         line = "Line({}) = [{},{}];\n".format(j, points_index[self.points[0]],
                                               points_index[self.points[1]])
         return (line, [j])
+
+    def Dict(self):
+        p1, p2 = self.points
+        d = {'p1' : p1.Dict(), 'p2' : p2.Dict(), 'd' : self.radius*2,
+             'heat_exhcange' : self.heat_exchange, 'length' : float(self.length),
+             'fQ' : float(self.fQ), 'name' : self.name}
+        return d
 
 class StraightPipe2D(StraightPipe):
     """
@@ -93,6 +97,16 @@ class StraightPipe3D(StraightPipe):
                                   self.length,
                                   name=self.name)
 
+    @classmethod
+    def DictToObject(cls, dict_):
+        p1 = vm.Point3D.DictToObject(dict_['p1'])
+        p2 = vm.Point3D.DictToObject(dict_['p2'])
+        d = dict_['d']
+        heat_exchange = dict_['heat_exchange']
+        name = dict_['name']
+        pipe = cls(p1, p2, d, heat_exchange, name)
+        return pipe
+
 class SingularPipe:
     """
     Other type of pipes linking 2 points
@@ -103,9 +117,6 @@ class SingularPipe:
         self.type = form
         self.heat_exchange = heat_exchange
         self.name = name
-
-#    def __repr__(self):
-#        return "{}-{}-{}".format(self.points[0], self.type, self.points[1])
 
     def __str__(self):
         return "{}-{}-{}".format(self.points[0], self.type, self.points[1])
@@ -134,7 +145,6 @@ class Bend(SingularPipe):
         self.section = math.pi*self.radius**2
         self.length = self.turn_radius*self.turn_angle
         length_d = GetEquivalent(abs(self.turn_angle*180/math.pi), ben_LD, ben_angle)
-        print(length_d)
         self.fQ = 16*2*length_d/(math.pi*self.radius**3)
         self.n_equations = 2
 
@@ -149,6 +159,16 @@ class Bend(SingularPipe):
         circle += "Circle({}) = [{},{},{}];\n".format(j+1, n+2, n+1, points_index[self.points[1]])
         phys = [j, j+1]
         return (circle, phys)
+
+    def Dict(self):
+        p1 = self.start_point
+        p = self.interior_point
+        p2 = self.end_point
+        d = {'p1' : p1.Dict(), 'p' : p.Dict(), 'p2' : p2.Dict(),
+             'd' : self.radius*2, 'length' : float(self.length),
+             'heat_exhcange' : self.heat_exchange,
+             'fQ' : float(self.fQ), 'name' : self.name}
+        return d
 
 class Bend2D(Bend):
     """
@@ -190,6 +210,17 @@ class Bend3D(Bend):
         normal_section = (self.arc.start - self.arc.center).Cross(self.arc.normal)
         section = vm.Contour3D([vm.Circle3D(self.arc.start, self.radius+0.001, normal_section)])
         return p3D.Sweep(section, vm.Wire3D([self.arc]))
+
+    @classmethod
+    def DictToObject(cls, dict_):
+        p1 = vm.Point3D.DictToObject(dict_['p1'])
+        p = vm.Point3D.DictToObject(dict_['p'])
+        p2 = vm.Point3D.DictToObject(dict_['p2'])
+        d = dict_['d']
+        heat_exchange = dict_['heat_exchange']
+        name = dict_['name']
+        pipe = cls(p1, p, p2, d, heat_exchange, name)
+        return pipe
 
 class MitterBend(SingularPipe):
     """
@@ -309,6 +340,23 @@ class UserDefined(SingularPipe):
 
     def Draw(self, x3D, y3D, ax=None):
         pass
+
+    def Dict(self):
+        p1, p2 = self.points
+        d = {'p1' : p1.Dict(), 'p2' : p2.Dict(),
+             'heat_exhcange' : self.heat_exchange,
+             'fQ' : float(self.fQ), 'name' : self.name}
+        return d
+    
+    @classmethod
+    def DictToObject(cls, dict_):
+        p1 = vm.Point3D.DictToObject(dict_['p1'])
+        p2 = vm.Point3D.DictToObject(dict_['p2'])
+        fQ = dict_['fQ']
+        heat_exchange = dict_['heat_exchange']
+        name = dict_['name']
+        pipe = cls(p1, p2, fQ, heat_exchange, name)
+        return pipe
 
 class JunctionPipe:
     """

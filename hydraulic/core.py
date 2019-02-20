@@ -12,7 +12,9 @@ from matplotlib import patches
 from scipy.linalg import solve
 import hydraulic.pipes as hyp
 import hydraulic.thermal as th
+from hydraulic import fluids
 import volmdlr as vm
+from copy import copy
 
 # Definition of equivalent L/D values
 # Lists in increasing order
@@ -214,6 +216,13 @@ class Circuit:
         if not turbulent:
             print("Flow is laminar in the circuit")
 
+    def Dict(self):
+        d = {'points' : [point.Dict() for point in self.points]}
+        d['pipes'] = [pipe.Dict() for pipe in self.pipes]
+        d['boundary_conditions'] = [bc.Dict() for bc in self.boundary_conditions]
+        d['fluid'] = self.fluid.Dict()
+        return d
+
 class Circuit2D(Circuit):
     def __init__(self, points, pipes, boundary_conditions, fluid):
         Circuit.__init__(self, points, pipes, boundary_conditions, fluid)
@@ -295,7 +304,20 @@ class Circuit3D(Circuit):
         model = self.CADModel()
         return model.FreeCADExport(filename, python_path, path_lib_freecad, export_types)
 
-class PressureCondition:
+    @classmethod
+    def DictToObject(cls, dict_):
+        points = [vm.Point3D.DictToObject(d) for d in dict_['points']]
+        pipes = [hyp.Pipe.DictToObject(d) for d in dict_['pipes']]
+        fluid = fluids.Fluid.DictToObject(dict_['fluid'])
+        boundary_conditions = []
+        for d in dict_['boundary_conditions']:
+            if d['type'] == 'pressure':
+                PressureCondition
+        circuit = cls(points, pipes, boundary_conditions, fluid)
+        return circuit
+
+
+class BoundaryCondition:
     def __init__(self, point, value):
         self.points = [point]
         self.active_points = self.points
@@ -304,22 +326,51 @@ class PressureCondition:
         self.system_matrix = self.SystemMatrix()
         self.n_equations = 1
 
+class PressureCondition(BoundaryCondition):
+    def __init__(self, point, value):
+        BoundaryCondition.__init__(self, point, value)
+        
     def SystemMatrix(self):
         system_matrix = npy.array([[1, 0]])
         return system_matrix
 
+    def Dict(self):
+        d = copy(self.__dict__)
+        d['points'] = [point.Dict() for point in self.points]
+        d['active_points'] = [point.Dict() for point in self.active_points]
+        d['system_matrix'] = self.system_matrix.tolist()
+        d['type'] = 'pressure'
+        return d
+
+    @classmethod
+    def DictToObject(cls, dict_):
+        point = [vm.Point3D.DictToObject(d) for d in dict_['points']][0]
+        value = dict_['value']
+        condition = cls(point, value)
+        return condition
+
 class FlowCondition:
     def __init__(self, point, value):
-        self.points = [point]
-        self.active_points = self.points
-        self.value = value
-        self.heat_exchange = False
-        self.system_matrix = self.SystemMatrix()
-        self.n_equations = 1
+        BoundaryCondition.__init__(point, value)
 
     def SystemMatrix(self):
         system_matrix = npy.array([[0, -1]])
         return system_matrix
+
+    def Dict(self):
+        d = copy(self.__dict__)
+        d['points'] = [point.Dict() for point in self.points]
+        d['active_points'] = [point.Dict() for point in self.active_points]
+        d['system_matrix'] = self.system_matrix.tolist()
+        d['type'] = 'flow'
+        return d
+
+    @classmethod
+    def DictToObject(cls, dict_):
+        point = [vm.Point3D.DictToObject(d) for d in dict_['points']][0]
+        value = dict_['value']
+        condition = cls(point, value)
+        return condition
 
 class FluidicsResults:
     def __init__(self, circuit, solution):
