@@ -337,9 +337,13 @@ class UserDefined(SingularPipe):
         line = "Line({}) = [{},{}];\n".format(j, points_index[self.points[0]],
                                               points_index[self.points[1]])
         return (line, [j])
-
+    
     def Draw(self, x3D, y3D, ax=None):
-        pass
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+
+        vm.LineSegment3D(*self.points).MPLPlot2D(x3D, y3D, ax)
 
     def Dict(self):
         p1, p2 = self.points
