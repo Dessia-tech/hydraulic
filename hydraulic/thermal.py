@@ -500,7 +500,7 @@ class ThermalResult:
         self.solution = solution
 
     def Display(self, ax=None, color_map='jet', max_width=0.01,
-                position=None, x3D=vm.x3D, y3D=vm.y3D):
+                position=None, x3D=vm.X3D, y3D=vm.Y3D):
         """
         Displays solution as a kamada-kawai graph layout
         """
@@ -630,7 +630,7 @@ class ThermohydraulicCircuit:
         for pipe, block in pipe2block.items():
             self.block2pipe[block] = pipe
 
-    def Draw(self, x3D=vm.x3D, y3D=vm.y3D, position=False):
+    def Draw(self, x3D=vm.X3D, y3D=vm.Y3D, position=False):
         """
         TODO Docstring
         """

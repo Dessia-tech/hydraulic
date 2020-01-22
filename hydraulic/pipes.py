@@ -403,7 +403,7 @@ class JunctionPipe:
         system_matrix = npy.array(matrix_generator)
         return system_matrix
 
-    def Draw(self, x3D=vm.x3D, y3D=vm.y3D, ax=None):
+    def Draw(self, x3D=vm.X3D, y3D=vm.Y3D, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)

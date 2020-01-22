@@ -286,7 +286,7 @@ class Circuit3D(Circuit):
     def __init__(self, points, pipes, boundary_conditions, fluid):
         Circuit.__init__(self, points, pipes, boundary_conditions, fluid)
 
-    def Draw(self, x3D=vm.x3D, y3D=vm.y3D, ax=None):
+    def Draw(self, x3D=vm.X3D, y3D=vm.Y3D, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -459,7 +459,7 @@ class FluidicsResults:
                                                            pipe2block)
         return thermohydraulic_ciruit
 
-    def DisplaySolution(self, x3D=vm.x3D, y3D=vm.y3D,
+    def DisplaySolution(self, x3D=vm.X3D, y3D=vm.Y3D,
                         position=False,
                         color_map=None,
                         max_width=0.025):
