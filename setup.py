@@ -69,6 +69,6 @@ setup(name='hydraulic',
       license='LGPL v3',
       packages=['hydraulic'],#,'volmdlr.primitives2D','volmdlr.primitives3D','volmdlr.geometry'],
       package_dir={},
-      install_requires=['numpy', 'matplotlib', 'scipy', 'volmdlr'],
+      install_requires=['numpy', 'matplotlib', 'scipy', 'volmdlr>=0.1.7'],
       classifiers=['Topic :: Scientific/Engineering','Development Status :: 3 - Alpha'],
       )

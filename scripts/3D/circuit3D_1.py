@@ -24,10 +24,10 @@ p5 = vm.Point3D((0.4, 0, 0))
 
 points = [p1, p2, p3, p4, p5]
 
-rl = primitives3D.RoundedLineSegments3D(points, {1: 0.03, 2: 0.01, 3 : 0.02}, adapt_radius=True)
+rl = primitives3D.OpenedRoundedLineSegments3D(points, {1: 0.03, 2: 0.01, 3 : 0.02}, adapt_radius=True)
 
-pipes = [hy.pipes.PipesFromVolmdlrPrimitives(p, diameter) for p in rl.basis_primitives]
-points = [p.points[0] for p in rl.basis_primitives]+[rl.basis_primitives[-1].points[-1]]
+pipes = [hy.pipes.PipesFromVolmdlrPrimitives(p, diameter) for p in rl.primitives]
+points = [p.points[0] for p in rl.primitives]+[rl.primitives[-1].points[-1]]
 
 # Pipes definitions
 

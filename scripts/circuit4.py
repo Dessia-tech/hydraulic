@@ -23,7 +23,8 @@ l_coord = [[0,0],[.01,0],[.02,.01],[.02,.03],[.03,.04],[.04,.04],[.05,.03],
          [.10,-0.01],[.09,-.01],[.08,-.01],[0,-.01]]
 points = [vm.Point2D(coord) for coord in l_coord]
 
-l_strt_link = [[0,1],[2,3],[4,5],[6,7],[9,10],[11,12],[13,14],[16,17],[24,21],[25,26],[27,28],[29,30],[28,29],[20,24]]
+l_strt_link = [[0,1],[2,3],[4,5],[6,7],[9,10],[11,12],[13,14],[16,17],[24,21],
+               [25,26],[27,28],[29,30],[28,29],[20,24]]
 l_junc_link = [[8,15],[8,9],[12,13],[19,13],[15,16],[15,20],[18,19],[23,19]]
 
 # Pipes definitions
@@ -38,7 +39,7 @@ pipes.append(hy.pipes.Bend2D(points[21], vm.Point2D((0.105,0.005)), points[22], 
 pipes.append(hy.pipes.Bend2D(points[22], vm.Point2D((0.093,0.013)), points[23], diameter))
 pipes.append(hy.pipes.Bend2D(points[14], vm.Point2D((0.107,0.037)), points[25], diameter))
 pipes.append(hy.pipes.Bend2D(points[26], vm.Point2D((0.107,-0.007)), points[27], diameter))
-pipes.extend([hy.pipes.JunctionPipe(points[link[0]],points[link[1]], diameter) for link in l_junc_link])
+pipes.extend([hy.pipes.JunctionPipe(points[link[0]], points[link[1]], diameter) for link in l_junc_link])
 
 delta_P = {points[30]:0, points[0]: dP}
 Qs = {points[30]: "out", points[0]: dQ}

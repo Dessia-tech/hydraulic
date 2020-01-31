@@ -1,0 +1,40 @@
+---
+kind: pipeline
+type: docker
+name: default
+
+steps:
+- name: install, build doc run scripts
+  image: python:3.7
+  commands:
+  - git fetch --tags 
+  - pip install sphinx sphinx_rtd_theme
+  - python setup.py install
+  - cd doc
+  - make html
+  - cd ../scripts
+  - python circuit4_3D.py
+  - python thermal/unidimensional_medium.py 
+
+- name: develop
+  image: python:3.7
+  commands:
+  - pip install Cython
+  - python setup.py develop
+
+- name: sdist, bdist, wheel
+  image: python:3.7
+  commands:
+  - pip install Cython wheel
+  - python setup.py sdist
+  - python setup.py bdist
+
+- name: upload to pypi
+  image: plugins/pypi
+  when:
+      event: tag
+  settings:
+    skip_build: True
+    username: dessia_tech
+    password:
+        from_secret: pypi_password

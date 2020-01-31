@@ -36,7 +36,7 @@ class StraightPipe:
         self.heat_exchange = heat_exchange
         self.radius = d/2
         self.surf = math.pi*self.radius**2
-        self.length = p1.PointDistance(p2)
+        self.length = p1.point_distance(p2)
         self.fQ = 16*self.length/(math.pi*self.radius**4)
         self.n_equations = 2
         self.name = name
@@ -374,7 +374,7 @@ class JunctionPipe:
         self.heat_exchange = False
         self.radius = diameter/2
         self.surf = math.pi*self.radius**2
-        self.lengths = [point.PointDistance(central_point) for point in other_points]
+        self.lengths = [point.point_distance(central_point) for point in other_points]
         self.n_equations = 1 + len(self.active_points)
         self.name = name
 
