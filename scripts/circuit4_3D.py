@@ -17,21 +17,21 @@ dP = 1e5
 dQ = 0.005
 constant = 2/(water.rho*water.nu)
 
-l_coord = [[0, 0, 0], [.01, 0, 0], [.02, .01, 0], [.02, .03, 0], [.03, .04, 0],
-           [.04, .04, 0], [.05, .03, 0], [.05, .01, 0], [.06, 0, 0], [.07, 0, 0],
-           [.075, .0, .0], [.07, .01, 0], [.07, .03, 0], [.08, .04, 0], [.09, .04, 0],
-           [.10, .035, 0], [.10, .04, 0], [.11, .04, 0], [.08, 0, 0], [.08, .01, 0],
-           [.08, .02, 0], [.09, .03, 0], [.10, .03, 0], [.09, 0, 0], [.11, 0, 0],
-           [.11, .01, 0], [.10, .02, 0], [.10, 0, 0], [.12, .03, 0], [.12, 0, 0],
-           [.11, -0.01, 0], [.10, -.01, 0], [.09, -.01, 0], [0, -.01, 0]]
-points = [vm.Point3D(coord) for coord in l_coord]
+coordinates = [[0, 0, 0], [.01, 0, 0], [.02, .01, 0], [.02, .03, 0], [.03, .04, 0],
+               [.04, .04, 0], [.05, .03, 0], [.05, .01, 0], [.06, 0, 0], [.07, 0, 0],
+               [.075, .0, .0], [.07, .01, 0], [.07, .03, 0], [.08, .04, 0], [.09, .04, 0],
+               [.10, .035, 0], [.10, .04, 0], [.11, .04, 0], [.08, 0, 0], [.08, .01, 0],
+               [.08, .02, 0], [.09, .03, 0], [.10, .03, 0], [.09, 0, 0], [.11, 0, 0],
+               [.11, .01, 0], [.10, .02, 0], [.10, 0, 0], [.12, .03, 0], [.12, 0, 0],
+               [.11, -0.01, 0], [.10, -.01, 0], [.09, -.01, 0], [0, -.01, 0]]
+points = [vm.Point3D(coord) for coord in coordinates]
 
-l_strt_link = [[0, 1], [2, 3], [4, 5], [6, 7], [11, 12], [13, 14], [19, 20],
+straight_links = [[0, 1], [2, 3], [4, 5], [6, 7], [11, 12], [13, 14], [19, 20],
                [27, 24], [28, 29], [30, 31], [32, 33], [31, 32], [23, 27]]
-l_junc_link = {9 : [8, 10, 11], 16 : [14, 17, 15], 18 : [10, 19, 23], 22 : [15, 21, 26]}
+junction_links = {9 : [8, 10, 11], 16 : [14, 17, 15], 18 : [10, 19, 23], 22 : [15, 21, 26]}
 
 # Pipes definitions
-pipes = [hy.pipes.StraightPipe3D(points[link[0]], points[link[1]], diameter, True) for link in l_strt_link]
+pipes = [hy.pipes.StraightPipe3D(points[link[0]], points[link[1]], diameter, True) for link in straight_links]
 pipes.append(hy.pipes.Bend3D(points[1], vm.Point3D((0.017,0.003, 0)), points[2], diameter, False))
 pipes.append(hy.pipes.Bend3D(points[3], vm.Point3D((0.023,0.037, 0)), points[4], diameter, False))
 pipes.append(hy.pipes.Bend3D(points[5], vm.Point3D((0.047,0.037, 0)), points[6], diameter, False))
@@ -42,7 +42,8 @@ pipes.append(hy.pipes.Bend3D(points[24], vm.Point3D((0.115,0.005, 0)), points[25
 pipes.append(hy.pipes.Bend3D(points[25], vm.Point3D((0.103,0.013, 0)), points[26], diameter, False))
 pipes.append(hy.pipes.Bend3D(points[17], vm.Point3D((0.117,0.037, 0)), points[28], diameter, False))
 pipes.append(hy.pipes.Bend3D(points[29], vm.Point3D((0.117,-0.007, 0)), points[30], diameter, False))
-for central_point_index, other_points_indices in l_junc_link.items():
+
+for central_point_index, other_points_indices in junction_links.items():
     other_points = [points[i] for i in other_points_indices]
     pipes.append(hy.pipes.JunctionPipe(points[central_point_index],
                                        other_points,

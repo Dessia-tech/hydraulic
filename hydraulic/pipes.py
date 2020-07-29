@@ -13,6 +13,8 @@ import volmdlr as vm
 import volmdlr.primitives3D as p3D
 from copy import copy
 
+from typing import List
+
 # Definition of equivalent L/D values
 # Lists in increasing order
 ben_angle = [0, 45, 90, 180, 360]
@@ -30,13 +32,14 @@ class StraightPipe:
     Abstract Class
     Straight pipes linking 2 points
     """
-    def __init__(self, p1, p2, d, heat_exchange=True, name=''):
-        self.points = [p1, p2]
+    def __init__(self, point1, point2, diameter:float,
+                 heat_exchange:bool=True, name:str=''):
+        self.points = [point1, point2]
         self.active_points = self.points
         self.heat_exchange = heat_exchange
-        self.radius = d/2
+        self.radius = diameter/2
         self.surf = math.pi*self.radius**2
-        self.length = p1.point_distance(p2)
+        self.length = point1.point_distance(point2)
         self.fQ = 16*self.length/(math.pi*self.radius**4)
         self.n_equations = 2
         self.name = name
@@ -65,8 +68,10 @@ class StraightPipe2D(StraightPipe):
     """
     Straight pipes linking 2 2D points
     """
-    def __init__(self, p1, p2, d, heat_exchange=True, name=''):
-        StraightPipe.__init__(self, p1, p2, d, heat_exchange, name)
+    def __init__(self, point1:vm.Point2D, point2:vm.Point2D, diameter:float,
+                 heat_exchange:bool=True, name:str=''):
+        StraightPipe.__init__(self, point1, point2, diameter, heat_exchange,
+                              name=name)
 
     def Draw(self, ax=None):
         if ax is None:
@@ -79,8 +84,10 @@ class StraightPipe3D(StraightPipe):
     """
     Straight pipes linking 2 3D points
     """
-    def __init__(self, p1, p2, d, heat_exchange=True, name=''):
-        StraightPipe.__init__(self, p1, p2, d, heat_exchange, name)
+    def __init__(self, point1:vm.Point3D, point2:vm.Point3D, diameter:float,
+                 heat_exchange:bool=True, name:str=''):
+        StraightPipe.__init__(self, point1, point2, diameter, heat_exchange,
+                              name=name)
 
     def Draw(self, x3D, y3D, ax=None):
         if ax is None:
@@ -367,7 +374,8 @@ class JunctionPipe:
     Add pressure drop values
     junction linking 1 pipe to 2+ pipes
     """
-    def __init__(self, central_point, other_points, diameter, name=''):
+    def __init__(self, central_point:vm.Point3D, other_points:List[vm.Point3D],
+                 diameter:float, name:str=''):
         self.points = [central_point] + other_points
         self.active_points = other_points
         self.central_point = central_point
