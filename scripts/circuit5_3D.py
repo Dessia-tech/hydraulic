@@ -25,10 +25,10 @@ p1 = vm.Point3D((0, 0, 0))
 p2 = vm.Point3D((dl, 0.5*dl, 0))
 p3 = vm.Point3D((dl, -0.5*dl, 0))
 p4 = vm.Point3D((2*dl, 0., 0))
-p5 = vm.Point3D((2*dl, 1.5*dl, 0))
-p6 = vm.Point3D((3*dl, 0.5*dl, 0))
+p5 = vm.Point3D((2*dl, 1.1*dl, 0))
+p6 = vm.Point3D((3*dl, 0.5*dl, 0.1*dl))
 p7 = vm.Point3D((3*dl, -0.5*dl, 0))
-p8 = vm.Point3D((2*dl, -1.5*dl, 0))
+p8 = vm.Point3D((2*dl, -1.1*dl, -0.05*dl))
 
 
 # Middle points
