@@ -32,21 +32,24 @@ class Circuit:
     """
     General class for 2D/3D circuits
     """
-    def __init__(self, points, pipes, boundary_conditions, fluid):
+    def __init__(self, points, pipes, boundary_conditions, fluid, name:str=''):
         self.points = points
         self.pipes = pipes
         self.boundary_conditions = boundary_conditions
         self.fluid = fluid
+        self.name = name
 
-        self.graph = self.GenerateGraph()
+        self.non_interior_points = {point for pipe in self.pipes\
+                                    for point in pipe.active_points}
+
+        self.graph = self.get_graph()
         # Creating thermal nodes out of circuit points
 
-    def GenerateGraph(self):
+    def get_graph(self):
         graph = nx.Graph()
         if self.points and self.pipes:
-            active_points = {point for pipe in self.pipes\
-                             for point in pipe.active_points}
-            graph.add_nodes_from(active_points,
+
+            graph.add_nodes_from(self.non_interior_points,
                                  node_type='point',
                                  node_shape='o')
             graph.add_nodes_from(self.pipes,
@@ -55,6 +58,8 @@ class Circuit:
             graph.add_nodes_from(self.boundary_conditions,
                                  node_type='boundary_condition',
                                  node_shape='^')
+            
+        
 
         for pipe in self.pipes:
             for point in pipe.active_points:
@@ -65,28 +70,8 @@ class Circuit:
         
         return graph
 
-    def AddPoint(self, coordinates):
-        point = vm.Point2D(coordinates)
-        self.points.append(point)
-        self.graph.add_node(point)
 
-    def AddPipe(self, p1, p2, pipe_type, *infos):
-        # Adds a pipe knowing the points linked, the type of pipe and the defining characterictics
-        pipe = globals()[pipe_type](p1, p2, *infos)
-        self.pipes.append(pipe)
-        self.graph.add_edge(*pipe.points, object=pipe)
-
-    def AddJunction(self, p1, ps, diameter, uniting=1):
-        # uniting=1 if flows from ps to p1, =0 if from p1 to ps
-        for p in ps:
-            if uniting:
-                pipe = hyp.JunctionPipe(p, p1, diameter)
-            else:
-                pipe = hyp.JunctionPipe(p1, p, diameter)
-            self.pipes.append(pipe)
-            self.graph.add_edge(*pipe.points, object=pipe)
-
-    def Point2Pipes(self):
+    def points_to_pipes(self):
         point2pipes = {point : [] for point in self.points}
         for point in self.points:
             for pipe in self.pipes + self.boundary_conditions:
@@ -94,15 +79,42 @@ class Circuit:
                     point2pipes[point].append(pipe)
         return point2pipes
 
-    def DrawGraph(self):
+    def plot_graph(self):
         graph_pos = nx.kamada_kawai_layout(self.graph)
-        labels_dict = {node : str(node) for node in list(self.graph.nodes)}
-        plt.figure("circuit")
-        nx.draw_networkx(self.graph,
-                         pos=graph_pos,
-                         labels=labels_dict,
-                         withlabels=True,
-                         fontweight="bold")
+        labels = {node : str(node) for node in list(self.graph.nodes)}
+        plt.figure("circuit graph")
+        # nx.draw_networkx(self.graph,
+        #                  pos=graph_pos,
+        #                  labels=labels_dict,
+        #                  withlabels=True,
+        #                  fontweight="bold")
+
+        nx.draw_networkx_nodes(self.graph,
+                               nodelist=self.non_interior_points,
+                               pos=graph_pos)
+        nx.draw_networkx_nodes(self.graph,
+                               nodelist=self.pipes,
+                               pos=graph_pos,
+                               node_shape='s',
+                               node_color='g')
+        # Boundary conditions
+        nx.draw_networkx_nodes(self.graph,
+                               nodelist=self.boundary_conditions,
+                               pos=graph_pos,
+                               node_shape='h',
+                               node_color='y')
+        nx.draw_networkx_edges(self.graph,
+                               pos=graph_pos)
+        nx.draw_networkx_nodes(self.graph,
+                               nodelist=self.pipes,
+                               pos=graph_pos,
+                               node_shape='s',
+                               node_color='grey')
+        
+        nx.draw_networkx_labels(self.graph,
+                                pos=graph_pos,
+                                labels=labels)
+        
 
     def ResolutionSettings(self):
         pressures_dict = {}
@@ -132,7 +144,7 @@ class Circuit:
             equations_dict[bc] = range(neqs, neqs + bc.n_equations)
             neqs += bc.n_equations
            
-        points2pipes = self.Point2Pipes()
+        points2pipes = self.points_to_pipes()
         for point in self.points:
             active = False
             pipes = points2pipes[point]
@@ -148,7 +160,7 @@ class Circuit:
     def SystemMatrix(self, constant):
         pressures_dict, flows_dict, equations_dict, neqs, nvars = self.ResolutionSettings()
         system_matrix = npy.zeros((neqs, nvars))
-        points2pipes = self.Point2Pipes()
+        points2pipes = self.points_to_pipes()
 
         # Write blocks equations
         for pipe in self.pipes + self.boundary_conditions:
@@ -228,10 +240,10 @@ class Circuit:
         return d
 
 class Circuit2D(Circuit):
-    def __init__(self, points, pipes, boundary_conditions, fluid):
-        Circuit.__init__(self, points, pipes, boundary_conditions, fluid)
+    def __init__(self, points, pipes, boundary_conditions, fluid, name:str=''):
+        Circuit.__init__(self, points, pipes, boundary_conditions, fluid,name=name)
 
-    def Draw(self, ax=None):
+    def plot(self, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -283,34 +295,36 @@ class Circuit3D(Circuit):
     
     """
     
-    def __init__(self, points, pipes, boundary_conditions, fluid):
-        Circuit.__init__(self, points, pipes, boundary_conditions, fluid)
+    def __init__(self, points, pipes, boundary_conditions, fluid, name:str=''):
+        Circuit.__init__(self, points, pipes, boundary_conditions, fluid, name=name)
 
-    def Draw(self, x3D=vm.X3D, y3D=vm.Y3D, ax=None):
+    def plot2d(self, x3D=vm.X3D, y3D=vm.Y3D, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
         for pipe in self.pipes:
-            pipe.Draw(x3D, y3D, ax)
+            pipe.plot2d(x3D, y3D, ax)
 
-    def CADModel(self):
+    def plot(self):
+        ax = self.pipes[0].plot()
+        print('ax', ax)
+        print(self.pipes[0])
+        for pipe in self.pipes[1:]:
+            pipe.plot(ax=ax)
+
+    def volmdlr_volume_model(self):
         pipes_primitives = []
         for pipe in self.pipes:
-            if hasattr(pipe, 'CADVolume'):
-                pipes_primitives.append(pipe.CADVolume())
-        model = vm.VolumeModel([('pipes', pipes_primitives)])
+            if hasattr(pipe, 'volmdlr_primitives'):
+                pipes_primitives.extend(pipe.volmdlr_primitives())
+        model = vm.VolumeModel(pipes_primitives, name=self.name)
+        # return pipes_primitives
         return model
 
-    def FreeCADExport(self, filename='An_unamed_circuit',
-                      python_path='python',
-                      path_lib_freecad='/usr/lib/freecad/lib',
-                      export_types=('fcstd')):
-        model = self.CADModel()
-        return model.FreeCADExport(filename, python_path, path_lib_freecad, export_types)
 
     @classmethod
-    def DictToObject(cls, dict_):
+    def dict_to_object(cls, dict_):
         points = [vm.Point3D.DictToObject(d) for d in dict_['points']]
         pipes = [hyp.Pipe.DictToObject(d) for d in dict_['pipes']]
         fluid = fluids.Fluid.DictToObject(dict_['fluid'])
@@ -335,6 +349,9 @@ class PressureCondition(BoundaryCondition):
     def __init__(self, point, value):
         BoundaryCondition.__init__(self, point, value)
         
+    def __str__(self):
+        return 'P={}'.format(round(self.value, 3))
+        
     def SystemMatrix(self):
         system_matrix = npy.array([[1, 0]])
         return system_matrix
@@ -357,6 +374,9 @@ class PressureCondition(BoundaryCondition):
 class FlowCondition:
     def __init__(self, point, value):
         BoundaryCondition.__init__(point, value)
+        
+    def __str__(self):
+        return 'Q={}'.format(round(self.value, 3))
 
     def SystemMatrix(self):
         system_matrix = npy.array([[0, -1]])
