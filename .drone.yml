@@ -43,8 +43,6 @@ steps:
     password:
       from_secret: ssh_drone_password
 
--
-
 - name: upload to pypi
   image: plugins/pypi
   when:
