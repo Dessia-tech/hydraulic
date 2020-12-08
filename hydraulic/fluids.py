@@ -16,7 +16,7 @@ class Fluid:
         return copy(self.__dict__)
 
     @classmethod
-    def DictToObject(cls, dict_):
+    def dict_to_object(cls, dict_):
         fluid = cls(dict_['rhos'], dict_['nu'],
                     dict_['heat_capacity'], dict_['name'])
         return fluid

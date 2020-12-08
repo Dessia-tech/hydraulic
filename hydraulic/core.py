@@ -232,11 +232,11 @@ class Circuit:
         if not turbulent:
             print("Flow is laminar in the circuit")
 
-    def Dict(self):
-        d = {'points' : [point.Dict() for point in self.points]}
-        d['pipes'] = [pipe.Dict() for pipe in self.pipes]
-        d['boundary_conditions'] = [bc.Dict() for bc in self.boundary_conditions]
-        d['fluid'] = self.fluid.Dict()
+    def to_dict(self):
+        d = {'points' : [point.to_dict() for point in self.points]}
+        d['pipes'] = [pipe.to_dict() for pipe in self.pipes]
+        d['boundary_conditions'] = [bc.to_dict() for bc in self.boundary_conditions]
+        d['fluid'] = self.fluid.to_dict()
         return d
 
 class Circuit2D(Circuit):
@@ -325,9 +325,9 @@ class Circuit3D(Circuit):
 
     @classmethod
     def dict_to_object(cls, dict_):
-        points = [vm.Point3D.DictToObject(d) for d in dict_['points']]
-        pipes = [hyp.Pipe.DictToObject(d) for d in dict_['pipes']]
-        fluid = fluids.Fluid.DictToObject(dict_['fluid'])
+        points = [vm.Point3D.dict_to_object(d) for d in dict_['points']]
+        pipes = [hyp.Pipe.dict_to_object(d) for d in dict_['pipes']]
+        fluid = fluids.Fluid.dict_to_object(dict_['fluid'])
         boundary_conditions = []
         for d in dict_['boundary_conditions']:
             if d['type'] == 'pressure':
@@ -356,17 +356,17 @@ class PressureCondition(BoundaryCondition):
         system_matrix = npy.array([[1, 0]])
         return system_matrix
 
-    def Dict(self):
+    def to_dict(self):
         d = copy(self.__dict__)
-        d['points'] = [point.Dict() for point in self.points]
-        d['active_points'] = [point.Dict() for point in self.active_points]
+        d['points'] = [point.to_dict() for point in self.points]
+        d['active_points'] = [point.to_dict() for point in self.active_points]
         d['system_matrix'] = self.system_matrix.tolist()
         d['type'] = 'pressure'
         return d
 
     @classmethod
-    def DictToObject(cls, dict_):
-        point = [vm.Point3D.DictToObject(d) for d in dict_['points']][0]
+    def dict_to_object(cls, dict_):
+        point = [vm.Point3D.dict_to_object(d) for d in dict_['points']][0]
         value = dict_['value']
         condition = cls(point, value)
         return condition
@@ -382,17 +382,17 @@ class FlowCondition:
         system_matrix = npy.array([[0, -1]])
         return system_matrix
 
-    def Dict(self):
+    def to_dict(self):
         d = copy(self.__dict__)
-        d['points'] = [point.Dict() for point in self.points]
-        d['active_points'] = [point.Dict() for point in self.active_points]
+        d['points'] = [point.to_dict() for point in self.points]
+        d['active_points'] = [point.to_dict() for point in self.active_points]
         d['system_matrix'] = self.system_matrix.tolist()
         d['type'] = 'flow'
         return d
 
     @classmethod
-    def DictToObject(cls, dict_):
-        point = [vm.Point3D.DictToObject(d) for d in dict_['points']][0]
+    def dict_to_object(cls, dict_):
+        point = [vm.Point3D.dict_to_object(d) for d in dict_['points']][0]
         value = dict_['value']
         condition = cls(point, value)
         return condition

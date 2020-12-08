@@ -10,7 +10,7 @@ import math
 import numpy as npy
 import matplotlib.pyplot as plt
 import volmdlr as vm
-import volmdlr.primitives3D as p3D
+import volmdlr.primitives3d as p3d
 from copy import copy
 
 from typing import List
@@ -58,9 +58,9 @@ class StraightPipe:
                                               points_index[self.points[1]])
         return (line, [j])
 
-    def Dict(self):
+    def to_dict(self):
         p1, p2 = self.points
-        d = {'p1' : p1.Dict(), 'p2' : p2.Dict(), 'd' : self.radius*2,
+        d = {'p1' : p1.to_dict(), 'p2' : p2.to_dict(), 'd' : self.radius*2,
              'heat_exhcange' : self.heat_exchange, 'length' : float(self.length),
              'fQ' : float(self.fQ), 'name' : self.name}
         return d
@@ -106,7 +106,7 @@ class StraightPipe3D(StraightPipe):
     def volmdlr_primitives(self):
         axis = self.points[1] - self.points[0]
         axis.Normalize()
-        return [p3D.HollowCylinder(0.5*(self.points[0] + self.points[1]), axis,
+        return [p3d.HollowCylinder(0.5*(self.points[0] + self.points[1]), axis,
                                   self.radius, self.radius + 0.001,
                                   self.length,
                                   name=self.name)]
@@ -174,11 +174,11 @@ class Bend(SingularPipe):
         phys = [j, j+1]
         return (circle, phys)
 
-    def Dict(self):
+    def to_dict(self):
         p1 = self.start_point
         p = self.interior_point
         p2 = self.end_point
-        d = {'p1' : p1.Dict(), 'p' : p.Dict(), 'p2' : p2.Dict(),
+        d = {'p1' : p1.to_dict(), 'p' : p.to_dict(), 'p2' : p2.to_dict(),
              'd' : self.radius*2, 'length' : float(self.length),
              'heat_exhcange' : self.heat_exchange,
              'fQ' : float(self.fQ), 'name' : self.name}
@@ -223,7 +223,7 @@ class Bend3D(Bend):
     def volmdlr_primitives(self):
         normal_section = (self.arc.start - self.arc.center).Cross(self.arc.normal)
         section = vm.Contour3D([vm.Circle3D(self.arc.start, self.radius+0.001, normal_section)])
-        return p3D.Sweep(section, vm.Wire3D([self.arc]))
+        return p3d.Sweep(section, vm.Wire3D([self.arc]))
 
     @classmethod
     def dict_to_object(cls, dict_):
@@ -341,7 +341,7 @@ class UserDefined(SingularPipe):
         l = axis.Norm()
         axis.Normalize()
         
-        return [p3D.HollowCylinder(0.5*(self.points[0] + self.points[1]), axis,
+        return [p3d.HollowCylinder(0.5*(self.points[0] + self.points[1]), axis,
                                   0.001, 0.002,
                                   l,
                                   name=self.name)]
@@ -359,9 +359,9 @@ class UserDefined(SingularPipe):
 
         vm.LineSegment3D(*self.points).MPLPlot2D(x3D, y3D, ax)
 
-    def Dict(self):
+    def to_dict(self):
         p1, p2 = self.points
-        d = {'p1' : p1.Dict(), 'p2' : p2.Dict(),
+        d = {'p1' : p1.to_dict(), 'p2' : p2.to_dict(),
              'heat_exhcange' : self.heat_exchange,
              'fQ' : float(self.fQ), 'name' : self.name}
         return d
@@ -448,7 +448,7 @@ class JunctionPipe:
             axis = point - self.central_point
             axis.Normalize()
             length = point.point_distance(self.central_point)
-            primitives.append(p3D.HollowCylinder(0.5*(self.central_point + point), axis,
+            primitives.append(p3d.HollowCylinder(0.5*(self.central_point + point), axis,
                                                  self.radius, self.radius + 0.001,
                                                  length,
                                                  name=self.name))
