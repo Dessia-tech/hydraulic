@@ -32,16 +32,16 @@ junction_links = {9 : [8, 10, 11], 16 : [14, 17, 15], 18 : [10, 19, 23], 22 : [1
 
 # Pipes definitions
 pipes = [hy.pipes.StraightPipe3D(points[link[0]], points[link[1]], diameter, True) for link in straight_links]
-pipes.append(hy.pipes.Bend3D(points[1], vm.Point3D((0.017,0.003, 0)), points[2], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[3], vm.Point3D((0.023,0.037, 0)), points[4], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[5], vm.Point3D((0.047,0.037, 0)), points[6], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[7], vm.Point3D((0.053,0.003, 0)), points[8], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[12], vm.Point3D((0.073,0.037, 0)), points[13], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[20], vm.Point3D((0.083,0.027, 0)), points[21], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[24], vm.Point3D((0.115,0.005, 0)), points[25], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[25], vm.Point3D((0.103,0.013, 0)), points[26], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[17], vm.Point3D((0.117,0.037, 0)), points[28], diameter, False))
-pipes.append(hy.pipes.Bend3D(points[29], vm.Point3D((0.117,-0.007, 0)), points[30], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[1], vm.Point3D(0.017,0.003, 0), points[2], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[3], vm.Point3D(0.023,0.037, 0), points[4], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[5], vm.Point3D(0.047,0.037, 0), points[6], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[7], vm.Point3D(0.053,0.003, 0), points[8], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[12], vm.Point3D(0.073,0.037, 0), points[13], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[20], vm.Point3D(0.083,0.027, 0), points[21], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[24], vm.Point3D(0.115,0.005, 0), points[25], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[25], vm.Point3D(0.103,0.013, 0), points[26], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[17], vm.Point3D(0.117,0.037, 0), points[28], diameter, False))
+pipes.append(hy.pipes.Bend3D(points[29], vm.Point3D(0.117,-0.007, 0), points[30], diameter, False))
 
 for central_point_index, other_points_indices in junction_links.items():
     other_points = [points[i] for i in other_points_indices]
