@@ -8,7 +8,7 @@ steps:
   image: python:3.8
   commands:
   - git fetch --tags 
-  - pip install sphinx sphinx_rtd_theme wheel
+  - pip install sphinx sphinx_rtd_theme wheel Cython
   - python setup.py install
   - cd doc
   - make html
