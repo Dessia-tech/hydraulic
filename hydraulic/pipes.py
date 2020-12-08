@@ -10,6 +10,7 @@ import math
 import numpy as npy
 import matplotlib.pyplot as plt
 import volmdlr as vm
+import volmdlr.edges as vme
 import volmdlr.primitives3d as p3d
 from copy import copy
 
@@ -79,7 +80,7 @@ class StraightPipe2D(StraightPipe):
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        ax = vm.LineSegment2D(*self.points).MPLPlot(ax)
+        ax = vm.LineSegment2D(*self.points).plot(ax)
         return ax
 
 class StraightPipe3D(StraightPipe):
@@ -96,11 +97,11 @@ class StraightPipe3D(StraightPipe):
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        vm.LineSegment3D(*self.points).MPLPlot2D(x3D, y3D, ax)
+        vm.LineSegment3D(*self.points).plot2D(x3D, y3D, ax)
         return ax
 
     def plot(self, ax=None):
-        ax = vm.LineSegment3D(*self.points).MPLPlot(ax=ax)
+        ax = vm.LineSegment3D(*self.points).plot(ax=ax)
         return ax
 
     def volmdlr_primitives(self):
@@ -192,7 +193,7 @@ class Bend2D(Bend):
                  diameter,
                  heat_exchange=True,
                  name=''):
-        arc = vm.Arc2D(start_point, interior_point, end_point)
+        arc = vme.Arc2D(start_point, interior_point, end_point)
         Bend.__init__(self, start_point, interior_point, end_point,
                       arc, diameter, heat_exchange, name)
 
@@ -201,7 +202,7 @@ class Bend2D(Bend):
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        self.arc.MPLPlot(ax)
+        self.arc.plot(ax)
 
 class Bend3D(Bend):
     """
@@ -209,7 +210,7 @@ class Bend3D(Bend):
     """
     def __init__(self, start_point, interior_point, end_point,
                  diameter, heat_exchange=True, name=''):
-        arc = vm.Arc3D(start_point, interior_point, end_point)
+        arc = vme.Arc3D(start_point, interior_point, end_point)
         Bend.__init__(self, start_point, interior_point, end_point,
                       arc, diameter, heat_exchange, name)
 
@@ -218,7 +219,7 @@ class Bend3D(Bend):
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        self.arc.MPLPlot2D(x3D, y3D, ax)
+        self.arc.plot2D(x3D, y3D, ax)
 
     def volmdlr_primitives(self):
         normal_section = (self.arc.start - self.arc.center).Cross(self.arc.normal)
@@ -357,7 +358,7 @@ class UserDefined(SingularPipe):
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        vm.LineSegment3D(*self.points).MPLPlot2D(x3D, y3D, ax)
+        vm.LineSegment3D(*self.points).plot2D(x3D, y3D, ax)
 
     def to_dict(self):
         p1, p2 = self.points
@@ -425,15 +426,15 @@ class JunctionPipe:
             ax = fig.add_subplot(111)
 
         for point in self.active_points:
-            vm.LineSegment2D(point, self.central_point).MPLPlot(ax)
+            vme.LineSegment2D(point, self.central_point).plot(ax)
         return ax
 
     def plot(self, ax=None):
         
-        ax = vm.LineSegment3D(self.active_points[0], self.central_point).MPLPlot(ax=ax)
+        ax = vm.LineSegment3D(self.active_points[0], self.central_point).plot(ax=ax)
         
         for point in self.active_points[1:]:
-            vm.LineSegment3D(point, self.central_point).MPLPlot(ax)
+            vm.LineSegment3D(point, self.central_point).plot(ax)
         return ax
 
     def Repr1D(self, j, points_index):
@@ -454,10 +455,10 @@ class JunctionPipe:
                                                  name=self.name))
         return primitives
 
-VM_EQUIVALENCES = {vm.LineSegment2D: (StraightPipe2D, (('points', 0), ('points', 1))),
-                   vm.Arc2D: (Bend2D, (('start', None), ('interior', None), ('end', None))),
-                   vm.LineSegment3D: (StraightPipe3D, (('points', 0), ('points', 1))),
-                   vm.Arc3D: (Bend3D, (('start', None), ('interior', None), ('end', None)))}
+VM_EQUIVALENCES = {vme.LineSegment2D: (StraightPipe2D, (('points', 0), ('points', 1))),
+                   vme.Arc2D: (Bend2D, (('start', None), ('interior', None), ('end', None))),
+                   vme.LineSegment3D: (StraightPipe3D, (('points', 0), ('points', 1))),
+                   vme.Arc3D: (Bend3D, (('start', None), ('interior', None), ('end', None)))}
 
 def PipesFromVolmdlrPrimitives(primitive, d):
     hy_class, args = VM_EQUIVALENCES[primitive.__class__]
