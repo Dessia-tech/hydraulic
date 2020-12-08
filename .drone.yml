@@ -5,10 +5,10 @@ name: default
 
 steps:
 - name: install, build doc run scripts
-  image: python:3.7
+  image: python:3.8
   commands:
   - git fetch --tags 
-  - pip install sphinx sphinx_rtd_theme
+  - pip install sphinx sphinx_rtd_theme wheel
   - python setup.py install
   - cd doc
   - make html
@@ -17,17 +17,33 @@ steps:
   - python thermal/unidimensional_medium.py 
 
 - name: develop
-  image: python:3.7
+  image: python:3.8
   commands:
   - pip install Cython
   - python setup.py develop
 
 - name: sdist, bdist, wheel
-  image: python:3.7
+  image: python:3.8
   commands:
   - pip install Cython wheel
   - python setup.py sdist
-  - python setup.py bdist
+  - python setup.py bdist_wheel
+
+- name: upload_doc_master
+  image: appleboy/drone-scp
+  when: 
+    branch: 
+      - master
+  settings:
+    host: austerlitz.dessia.tech
+    target: /var/www/documentation/hydraulic/
+    source: doc/build/html/*
+    strip_components: 3
+    username: drone
+    password:
+      from_secret: ssh_drone_password
+
+-
 
 - name: upload to pypi
   image: plugins/pypi
