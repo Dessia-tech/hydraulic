@@ -8,13 +8,17 @@ steps:
   image: python:3.8
   commands:
   - git fetch --tags 
-  - pip install sphinx sphinx_rtd_theme wheel Cython
+  - pip install sphinx sphinx_rtd_theme wheel Cython coverage
   - python setup.py install
   - cd doc
   - make html
-  - cd ../scripts
-  - python circuit4_3D.py
-  - python thermal/unidimensional_medium.py 
+  - cd ../tests
+  - coverage run --source hydraulic ci_tests.py
+  - coverage report
+  - coverage json
+  - python coverage.py 
+
+
 
 - name: develop
   image: python:3.8
@@ -26,14 +30,13 @@ steps:
   image: python:3.8
   commands:
   - pip install Cython wheel
-  - python setup.py sdist
   - python setup.py bdist_wheel
 
 - name: upload_doc_master
   image: appleboy/drone-scp
   when: 
-    branch: 
-      - master
+    branch: master
+    event: push
   settings:
     host: austerlitz.dessia.tech
     target: /var/www/documentation/hydraulic/

@@ -5,6 +5,7 @@
 """
 import numpy as npy
 import networkx as nx
+import dessia_common as dc
 from scipy.linalg import solve
 import matplotlib.pyplot as plt
 from matplotlib import patches
@@ -12,22 +13,26 @@ from hydraulic.fluids import water
 import volmdlr as vm
 
 
-class Node:
-    """
-    Defines a thermal node
-    """
+class Node(dc.DessiaObject):
+    _standalone_in_db = False
+    _eq_is_data_eq = False
     def __init__(self, name=''):
+        """
+        Defines a thermal node
+        """
         self.name = name
 
     def __str__(self):
         return self.name
 
 
-class Block:
-    """
-    Defines a thermal block. This is an abstract class
-    """
+class Block(dc.DessiaObject):
+    _standalone_in_db = False
+    
     def __init__(self, nodes, active_nodes, name=''):
+        """
+        Defines a thermal block. This is an abstract class
+        """
         self.nodes = nodes
         self.active_nodes = active_nodes
         self.name = name
@@ -39,7 +44,7 @@ class Block:
         
     def _get_system_matrix(self):
         if not self._utd_system_equations:
-            self._system_matrix, self._system_rhs = self.SystemEquations()
+            self._system_matrix, self._system_rhs = self.system_equations()
             self._utd_system_equations = True
         return self._system_matrix
     
@@ -47,7 +52,7 @@ class Block:
 
     def _get_system_rhs(self):
         if not self._utd_system_equations:
-            self._system_matrix, self._system_rhs = self.SystemEquations()
+            self._system_matrix, self._system_rhs = self.system_equations()
             self._utd_system_equations = True
         return self._system_rhs
 
@@ -73,7 +78,7 @@ class Resistor(Block):
         str1 = self.nodes[1].name
         return str0+"-res-"+str1
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         Computes node equations system
         sum(phi) = 0
@@ -98,7 +103,7 @@ class ThermalPipe(Block):
         str1 = self.nodes[1].name
         return str0+"-tpipe-"+str1
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         TODO Docstring
         """
@@ -108,13 +113,13 @@ class ThermalPipe(Block):
         b = npy.array([0, 0])
         return matrix, b
 
-    def UpdateFlow(self, new_flow):
+    def update_flow(self, new_flow):
         self.flow = new_flow
-        self.system_matrix, self.system_rhs = self.SystemEquations()
+        self.system_matrix, self.system_rhs = self.system_equations()
 
-    def UpdateFluid(self, new_fluid):
+    def update_fluid(self, new_fluid):
         self.fluid = new_fluid
-        self.system_matrix, self.system_rhs = self.SystemEquations()
+        self.system_matrix, self.system_rhs = self.system_equations()
 
 
 class Junction(Block):
@@ -137,7 +142,7 @@ class Junction(Block):
         str1 = str(len(self.output_nodes))
         return str0+"-junct-"+str1
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         Computes block equations system
         Output temperatures are a weighted mean of input volumetric flows
@@ -170,7 +175,7 @@ class Junction(Block):
         b = npy.zeros(lon+1)
         return matrix, b
 
-    def UpdateNode(self, old_node, new_node):
+    def update_node(self, old_node, new_node):
         """
         Replaces old_node by new_node
         """
@@ -183,13 +188,13 @@ class Junction(Block):
             self.output_nodes[index] = new_node
         self.nodes[index_global] = new_node
 
-    def UpdateFlow(self, new_flow):
+    def update_flow(self, new_flow):
         self.flow = new_flow
-        self.system_matrix = self.SystemEquations()
+        self.system_matrix = self.system_equations()
 
-    def UpdateFluid(self, new_fluid):
+    def update_fluid(self, new_fluid):
         self.fluid = new_fluid
-        self.system_matrix = self.SystemEquations()
+        self.system_matrix = self.system_equations()
 
 
 class NodeEquivalence(Block):
@@ -202,7 +207,7 @@ class NodeEquivalence(Block):
         name = str0+"-nodeq-"+str1
         Block.__init__(self, nodes, nodes, name)
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         Computes block equations system
         T1 = T2
@@ -212,7 +217,7 @@ class NodeEquivalence(Block):
         b = npy.array([0, 0])
         return matrix, b
 
-    def UpdateNode(self, old_node, new_node):
+    def update_node(self, old_node, new_node):
         """
         Replaces old_node by new_node
         """
@@ -229,7 +234,7 @@ class TemperatureBound(Block):
 
         Block.__init__(self, nodes, nodes, name)
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         TODO Docstring
         """
@@ -247,7 +252,7 @@ class HeatFlowInBound(Block):
 
         Block.__init__(self, nodes, nodes, name)
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         TODO Docstring
         """
@@ -263,7 +268,7 @@ class HeatFlowOutBound(Block):
     def __init__(self, nodes, name=''):
         Block.__init__(self, nodes, nodes, name)
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         TODO Docstring
         """
@@ -286,7 +291,7 @@ class UnidimensionalMedium(Block):
         str1 = self.nodes[1].name
         return str0+"-res-"+str1
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         Computes node equations system
         sum(phi) = 0
@@ -309,7 +314,7 @@ class Circuit:
         self.nodes2blocks = self.SetNodes2Blocks()
 
         self.temperature_dict, self.flows_dict, self.equations_dict = self.NumberElements()
-        self.graph = self.GenerateGraph()
+        self.graph = self.generate_graph()
         self.name = name
 
     def NumberElements(self):
@@ -357,15 +362,15 @@ class Circuit:
 ##                self.nodes2blocks[node] = [block1, equivalence_block]
 ##                self.nodes2blocks[output_node] = [equivalence_block, block2]
 
-    def AddBlocks(self, blocks):
+    def add_blocks(self, blocks):
         for block in blocks:
             self.blocks.append(block)
             for node in block.nodes:
                 if node not in self.nodes:
                     self.nodes.append(node)
-        self.Update()
+        self.update()
 
-    def AddResistor(self, node,
+    def add_resistor(self, node,
                     resistance_factor, area_factor,
                     boundary_condition):
         bc_node = boundary_condition.nodes[0]
@@ -373,12 +378,12 @@ class Circuit:
                             resistance_factor, area_factor)
         self.nodes.append(bc_node)
         self.blocks.extend([resistor, boundary_condition])
-        self.Update()
+        self.update()
 
-    def Update(self):
+    def update(self):
         self.nodes2blocks = self.SetNodes2Blocks()
         self.temperature_dict, self.flows_dict, self.equations_dict = self.NumberElements()
-        self.graph = self.GenerateGraph()
+        self.graph = self.generate_graph()
 
     def SetNodes2Blocks(self):
         nodes2blocks = {node : [] for node in self.nodes}
@@ -388,7 +393,7 @@ class Circuit:
                     nodes2blocks[node].append(block)
         return nodes2blocks
 
-    def SystemEquations(self):
+    def system_equations(self):
         """
         Loops on every blocks to get its equation and then assemble the whole system
         """
@@ -405,7 +410,7 @@ class Circuit:
 
         # Write blocks equations
         for block in self.blocks:
-            matrix_block, rhs_block = block.SystemEquations()
+            matrix_block, rhs_block = block.system_equations()
             for i_local, i_global in enumerate(self.equations_dict[block]):
                 for j, node in enumerate(block.nodes):
                     j_temp_local = 2*j
@@ -433,12 +438,12 @@ class Circuit:
 
         return system_matrix, rhs
 
-    def Solve(self):
+    def solve(self):
         """
         Solves system matrix with given input flows and fluid
         """
         #  Build system matrix
-        system_matrix, vector_b = self.SystemEquations()
+        system_matrix, vector_b = self.system_equations()
 
         # Solve
         solution = solve(system_matrix, vector_b)
@@ -446,7 +451,7 @@ class Circuit:
         result = ThermalResult(self, system_matrix, vector_b, solution)
         return result
 
-    def GenerateGraph(self):
+    def generate_graph(self):
         """
         Generate circuit graph
         """
@@ -463,7 +468,7 @@ class Circuit:
 
         return graph
 
-    def Draw(self):
+    def plot(self):
         """
         Draws circuit graph with kamada-kawai layout
         """
@@ -499,10 +504,10 @@ class ThermalResult:
         self.vector_b = vector_b
         self.solution = solution
 
-    def Display(self, ax=None, color_map='jet', max_width=0.01,
+    def plot(self, ax=None, color_map='jet', max_width=0.01,
                 position=None, x3D=vm.X3D, y3D=vm.Y3D):
         """
-        Displays solution as a kamada-kawai graph layout
+        plots solution as a kamada-kawai graph layout
         """
         if ax is None:
             fig = plt.figure()
@@ -630,7 +635,7 @@ class ThermohydraulicCircuit:
         for pipe, block in pipe2block.items():
             self.block2pipe[block] = pipe
 
-    def Draw(self, x3D=vm.X3D, y3D=vm.Y3D, position=False):
+    def plot(self, x3D=vm.X3D, y3D=vm.Y3D, position=False):
         """
         TODO Docstring
         """
@@ -673,7 +678,7 @@ class ThermohydraulicCircuit:
                                    edgelist=edges)
 
         else:
-            self.thermal_circuit.Draw()
+            self.thermal_circuit.plot()
 
 
 def IsHydraulicBlock(block):

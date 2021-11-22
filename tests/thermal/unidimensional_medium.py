@@ -32,5 +32,5 @@ imp_flux = thermal.HeatFlowInBound([node_inner_medium], q)
 
 blocks = [res1, res2, medium, imp_temp1, imp_temp2, imp_flux]
 circuit = thermal.Circuit(nodes, blocks)
-result = circuit.Solve()
-result.Display()
+result = circuit.solve()
+result.plot()

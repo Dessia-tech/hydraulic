@@ -21,14 +21,14 @@ coordin = [[0, 0, 0], [.01, 0, 0], [.02, .01, 0], [.02, .03, 0], [.03, .04, 0],
 
 dl = 0.1
 
-p1 = vm.Point3D((0, 0, 0))
-p2 = vm.Point3D((dl, 0.5*dl, 0))
-p3 = vm.Point3D((dl, -0.5*dl, 0))
-p4 = vm.Point3D((2*dl, 0., 0))
-p5 = vm.Point3D((2*dl, 1.1*dl, 0))
-p6 = vm.Point3D((3*dl, 0.5*dl, 0.1*dl))
-p7 = vm.Point3D((3*dl, -0.5*dl, 0))
-p8 = vm.Point3D((2*dl, -1.1*dl, -0.05*dl))
+p1 = vm.Point3D(0, 0, 0)
+p2 = vm.Point3D(dl, 0.5*dl, 0)
+p3 = vm.Point3D(dl, -0.5*dl, 0)
+p4 = vm.Point3D(2*dl, 0., 0)
+p5 = vm.Point3D(2*dl, 1.1*dl, 0)
+p6 = vm.Point3D(3*dl, 0.5*dl, 0.1*dl)
+p7 = vm.Point3D(3*dl, -0.5*dl, 0)
+p8 = vm.Point3D(2*dl, -1.1*dl, -0.05*dl)
 
 
 # Middle points
@@ -60,5 +60,5 @@ volume_model = circuit.volmdlr_volume_model()
 volume_model.babylonjs()
 
 # Fluidics calculations
-fluidics_result = circuit.SolveFluidics()
-fluidics_result.DisplaySolution()
+fluidics_result = circuit.solve_fluidics()
+fluidics_result.plot()
