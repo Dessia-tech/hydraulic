@@ -6,7 +6,7 @@ Created on Tue Nov 13 17:24:47 2018
 @author: jezequel
 """
 
-import thermal as th
+import hydraulic.thermal as th
 from hydraulic.fluids import water
 import math
 import volmdlr as vm
@@ -20,21 +20,21 @@ thermal_conductivity = 237
 # =============================================================================
 # Resistors in series
 # =============================================================================
-#node1 = th.Node()
-#node2 = th.Node()
-#node3 = th.Node()
-#nodes = [node1, node2, node3]
-#
-#bound1 = th.HeatFlowInBound([node1], -10)
-#block1 = th.Resistor([node1, node2], 2, 1, 1)
-#block2 = th.Resistor([node2, node3], 10, 1, 1)
-#bound4 = th.TemperatureBound([node3], 313)
-#blocks = [bound1, block1, block2, bound4]
-#
-#thc = th.Circuit(nodes, blocks)
-#junction_input_flows = {}
-#system_matrix = thc.SystemMatrix(junction_input_flows)
-#result = thc.Solve(junction_input_flows)
+# node1 = th.Node()
+# node2 = th.Node()
+# node3 = th.Node()
+# nodes = [node1, node2, node3]
+
+# bound1 = th.HeatFlowInBound([node1], -10)
+# block1 = th.Resistor([node1, node2], 2, 1, 1)
+# block2 = th.Resistor([node2, node3], 10, 1, 1)
+# bound4 = th.TemperatureBound([node3], 313)
+# blocks = [bound1, block1, block2, bound4]
+
+# thc = th.Circuit(nodes, blocks)
+# junction_input_flows = {}
+# system_matrix = thc.SystemMatrix(junction_input_flows)
+# result = thc.Solve(junction_input_flows)
 
 # =============================================================================
 # Resistors : star disposition
@@ -287,8 +287,9 @@ for i, pipe in enumerate(pipes):
 nodes = hnodes + tnodes + rnodes
 blocks = hblocks + tblocks
 thc = th.Circuit(nodes, blocks)
-system_matrix = thc.SystemMatrix()
+thc.plot()
+# system_matrix = thc.system_matrix()
 
 # Solve and diplay
-result = thc.Solve()
-result.Display()    
+result = thc.solve()
+result.plot()    

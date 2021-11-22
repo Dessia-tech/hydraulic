@@ -14,7 +14,9 @@ import hydraulic.pipes as hyp
 import hydraulic.thermal as th
 from hydraulic import fluids
 import volmdlr as vm
+import volmdlr.core as vmc
 from copy import copy
+import dessia_common as dc
 
 # Definition of equivalent L/D values
 # Lists in increasing order
@@ -28,7 +30,7 @@ enl_LD = [30, 20, 6.5, 0]
 ctr_rap = [1, 4/3, 2, 4]
 ctr_LD = [0, 6.5, 11, 15]
 
-class Circuit:
+class Circuit(dc.DessiaObject):
     """
     General class for 2D/3D circuits
     """
@@ -116,7 +118,7 @@ class Circuit:
                                 labels=labels)
         
 
-    def ResolutionSettings(self):
+    def settings(self):
         pressures_dict = {}
         flows_dict = {}
         equations_dict = {}
@@ -158,7 +160,7 @@ class Circuit:
         return pressures_dict, flows_dict, equations_dict, neqs, nvars
 
     def system_matrix(self, constant):
-        pressures_dict, flows_dict, equations_dict, neqs, nvars = self.ResolutionSettings()
+        pressures_dict, flows_dict, equations_dict, neqs, nvars = self.settings()
         system_matrix = npy.zeros((neqs, nvars))
         points2pipes = self.points_to_pipes()
 
@@ -193,7 +195,7 @@ class Circuit:
 
         return system_matrix
 
-    def SolveFluidics(self):
+    def solve_fluidics(self):
         """
         solves the hydraulic circuit for
         :param imposed: = "pressure" or "flow"
@@ -203,7 +205,7 @@ class Circuit:
                for output points specify "out" as value
                output points will be set at pressure = low_p
         """
-        dictionaries = self.ResolutionSettings()
+        dictionaries = self.settings()
         equations_dict = dictionaries[2]
 
         constant = 2/(self.fluid.rho*self.fluid.nu)
@@ -251,7 +253,7 @@ class Circuit2D(Circuit):
         for pipe in self.pipes:
             pipe.plot(ax)
 
-    def Export1D(self, name="Generated_Circuit", path="", size=1., index=0):
+    def to_gmsh(self, name="Generated_Circuit", path="", size=1., index=0):
         """
         Exports the circuit as a 1D geo file for gmsh
         Size defines the size of the mesh
@@ -263,14 +265,14 @@ class Circuit2D(Circuit):
         geo_txt = ""
         for i in range(n_pts):
             point = self.points[i]
-            geo_txt += "Point({0}) = [{1[0]},{1[1]},0.,{2}];\n".format(i+1, point.position, size)
+            geo_txt += "Point({0}) = [{1[0]},{1[1]},0.,{2}];\n".format(i+1, point, size)
             pts_index[point] = i+1
         n_pipes = len(self.pipes)
         added_elems = 0
         physicals = [] # Index of lines for physical lines
         for j in range(n_pipes):
             pipe = self.pipes[j]
-            [mess, phys] = pipe.Repr1D(j+1+added_elems, pts_index)
+            [mess, phys] = pipe.gmsh_repr1d(j+1+added_elems, pts_index)
             physicals.append(phys)
             geo_txt += mess
             added_elems += len(phys)-1
@@ -304,22 +306,22 @@ class Circuit3D(Circuit):
             ax = fig.add_subplot(111)
 
         for pipe in self.pipes:
-            pipe.plot2d(x3D, y3D, ax)
+            pipe.plot2d(x3D, y3D, ax=ax)
 
     def plot(self):
         ax = self.pipes[0].plot()
-        # print(self.pipes[0])
         for pipe in self.pipes[1:]:
             pipe.plot(ax=ax)
+        return ax
 
-    def volmdlr_volume_model(self):
+    def volmdlr_primitives(self):
         pipes_primitives = []
         for pipe in self.pipes:
             if hasattr(pipe, 'volmdlr_primitives'):
                 pipes_primitives.extend(pipe.volmdlr_primitives())
-        model = vm.VolumeModel(pipes_primitives, name=self.name)
-        # return pipes_primitives
-        return model
+        # model = vmc.VolumeModel(pipes_primitives, name=self.name)
+        return pipes_primitives
+        # return model
 
 
     @classmethod
@@ -335,7 +337,9 @@ class Circuit3D(Circuit):
         return circuit
 
 
-class BoundaryCondition:
+class BoundaryCondition(dc.DessiaObject):
+    _standalone_in_db = False
+    
     def __init__(self, point, value):
         self.points = [point]
         self.active_points = self.points
@@ -370,7 +374,9 @@ class PressureCondition(BoundaryCondition):
         condition = cls(point, value)
         return condition
 
-class FlowCondition:
+class FlowCondition(dc.DessiaObject):
+    _standalone_in_db = True
+    
     def __init__(self, point, value):
         BoundaryCondition.__init__(point, value)
         
@@ -396,14 +402,16 @@ class FlowCondition:
         condition = cls(point, value)
         return condition
 
-class FluidicsResults:
+class FluidicsResults(dc.DessiaObject):
+    
+    
     def __init__(self, circuit, solution):
         self.circuit = circuit
         self.solution = solution
-        system_data = circuit.ResolutionSettings()
+        system_data = circuit.settings()
         self.flows_dict = system_data[1]
         
-    def ToThermal(self, fluid_input_points, fluid_output_points):
+    def to_thermal(self, fluid_input_points, fluid_output_points):
         """
         Converts hydraulic circuit to thermal
         """
@@ -487,7 +495,7 @@ class FluidicsResults:
         Numbers are displayed with the number of digits
         position=True to display in circuit coordinates
         """
-        dictionaries = self.circuit.ResolutionSettings()
+        dictionaries = self.circuit.settings()
         pressures_dict, flows_dict = dictionaries[:2]
         graph = self.circuit.graph
 

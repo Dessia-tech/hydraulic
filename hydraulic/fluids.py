@@ -22,3 +22,9 @@ class Fluid:
         return fluid
         
 water = Fluid(1000, 0.0010518, 4185, 'Water')
+
+# Approximative figures
+sae10 = Fluid(900, 0.1, 2000, 'SAE10 oil')
+sae20 = Fluid(900, 0.2, 2000, 'SAE20 oil')
+sae30 = Fluid(900, 0.5, 2000, 'SAE30 oil')
+sae40 = Fluid(900, 0.8, 2000, 'SAE40 oil')

@@ -12,9 +12,13 @@ steps:
   - python setup.py install
   - cd doc
   - make html
-  - cd ../scripts
-  - python circuit4_3D.py
-  - python thermal/unidimensional_medium.py 
+  - cd ../tests
+  - coverage run --source dessia_common ci_tests.py
+  - coverage json
+  - python coverage.py 
+  - coverage report
+
+
 
 - name: develop
   image: python:3.8

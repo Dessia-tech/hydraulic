@@ -35,15 +35,10 @@ points = [p.start for p in rls.basis_primitives]+[rls.basis_primitives[-1].end]
 bc = [hy.PressureCondition(points[0], dp), hy.PressureCondition(points[-1], 0)]
 
 circuit = hy.Circuit2D(points, pipes, bc, water)
+circuit.to_gmsh()
 
-result = circuit.SolveFluidics()
+result = circuit.solve_fluidics()
 result.circuit.plot()
 result.plot()
 result.plot(position=True)
 
-cooling_plate_parts = []
-for i, pipe in enumerate(circuit.pipes):
-    thermal_area = 2*math.pi*pipe.radius*pipe.length
-    resistor = thermal.Resistor(cp_thickness, thermal_conductivity, thermal_area)
-    cooling_plate_parts.append(thermal.CoolingPlatePartFromPipe(pipe, resistor, circuit.fluid))
-cooling_plate = thermal.CoolingPlate(circuit, cooling_plate_parts)
