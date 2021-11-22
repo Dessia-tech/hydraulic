@@ -35,8 +35,8 @@ steps:
 - name: upload_doc_master
   image: appleboy/drone-scp
   when: 
-    branch: 
-      - master
+    branch: master
+    event: push
   settings:
     host: austerlitz.dessia.tech
     target: /var/www/documentation/hydraulic/
