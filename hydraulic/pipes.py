@@ -49,7 +49,7 @@ class StraightPipe:
         # return "{} from {} to {}".format(self.__class__.__name__, self.points[0], self.points[1])
         return 'Straight pipe'
 
-    def SystemMatrix(self, constant):
+    def system_matrix(self, constant):
         system_matrix = npy.array([[-constant, self.fQ, constant, 0],
                                    [0, 1, 0, 1]])
         return system_matrix
@@ -80,7 +80,7 @@ class StraightPipe2D(StraightPipe):
             fig = plt.figure()
             ax = fig.add_subplot(111)
 
-        ax = vm.LineSegment2D(*self.points).plot(ax)
+        ax = vme.LineSegment2D(*self.points).plot(ax)
         return ax
 
 class StraightPipe3D(StraightPipe):
@@ -136,7 +136,7 @@ class SingularPipe:
     def __str__(self):
         return "{}-{}-{}".format(self.points[0], self.type, self.points[1])
 
-    def SystemMatrix(self, constant):
+    def system_matrix(self, constant):
         system_matrix = npy.array([[-constant, self.fQ, constant, 0],
                                    [0, 1, 0, 1]])
         return system_matrix
@@ -197,7 +197,7 @@ class Bend2D(Bend):
         Bend.__init__(self, start_point, interior_point, end_point,
                       arc, diameter, heat_exchange, name)
 
-    def Draw(self, ax=None):
+    def plot(self, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -214,7 +214,7 @@ class Bend3D(Bend):
         Bend.__init__(self, start_point, interior_point, end_point,
                       arc, diameter, heat_exchange, name)
 
-    def Draw(self, x3D, y3D, ax=None):
+    def plot(self, x3D, y3D, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -332,7 +332,7 @@ class UserDefined(SingularPipe):
         self.fQ = fQ
         self.n_equations = 2
         
-    def SystemMatrix(self, constant):
+    def system_matrix(self, constant):
         system_matrix = npy.array([[-constant, self.fQ, constant, 0],
                                    [0, 1, 0, 1]])
         return system_matrix
@@ -353,7 +353,7 @@ class UserDefined(SingularPipe):
                                               points_index[self.points[1]])
         return (line, [j])
     
-    def Draw(self, x3D, y3D, ax=None):
+    def plot(self, x3D, y3D, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -403,7 +403,7 @@ class JunctionPipe:
         # return "{}-jun-{}".format(self.central_point, len(self.active_points))
         return 'Junction'
 
-    def SystemMatrix(self, constant):
+    def system_matrix(self, constant):
         """
         Build local matrices
         """
@@ -455,12 +455,12 @@ class JunctionPipe:
                                                  name=self.name))
         return primitives
 
-VM_EQUIVALENCES = {vme.LineSegment2D: (StraightPipe2D, (('points', 0), ('points', 1))),
+VM_EQUIVALENCES = {vme.LineSegment2D: (StraightPipe2D, (('start', None), ('end', None))),
                    vme.Arc2D: (Bend2D, (('start', None), ('interior', None), ('end', None))),
-                   vme.LineSegment3D: (StraightPipe3D, (('points', 0), ('points', 1))),
+                   vme.LineSegment3D: (StraightPipe3D, (('start', None), ('end', None))),
                    vme.Arc3D: (Bend3D, (('start', None), ('interior', None), ('end', None)))}
 
-def PipesFromVolmdlrPrimitives(primitive, d):
+def pipes_from_volmdlr_primitives(primitive, d):
     hy_class, args = VM_EQUIVALENCES[primitive.__class__]
     args2 = []
     for a, index in args:

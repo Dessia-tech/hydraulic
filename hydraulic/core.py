@@ -157,7 +157,7 @@ class Circuit:
 
         return pressures_dict, flows_dict, equations_dict, neqs, nvars
 
-    def SystemMatrix(self, constant):
+    def system_matrix(self, constant):
         pressures_dict, flows_dict, equations_dict, neqs, nvars = self.ResolutionSettings()
         system_matrix = npy.zeros((neqs, nvars))
         points2pipes = self.points_to_pipes()
@@ -165,9 +165,9 @@ class Circuit:
         # Write blocks equations
         for pipe in self.pipes + self.boundary_conditions:
             if pipe in self.boundary_conditions:
-                block_system_matrix = pipe.SystemMatrix()
+                block_system_matrix = pipe.system_matrix()
             else:
-                block_system_matrix = pipe.SystemMatrix(constant)
+                block_system_matrix = pipe.system_matrix(constant)
             for i_local, i_global in enumerate(equations_dict[pipe]):
                 for j, point in enumerate(pipe.points):
                     j_press_local = 2*j
@@ -207,7 +207,7 @@ class Circuit:
         equations_dict = dictionaries[2]
 
         constant = 2/(self.fluid.rho*self.fluid.nu)
-        system_matrix = self.SystemMatrix(constant)
+        system_matrix = self.system_matrix(constant)
         vector_b = npy.zeros(system_matrix.shape[0])
 
         for boundary_condition in self.boundary_conditions:
@@ -249,7 +249,7 @@ class Circuit2D(Circuit):
             ax = fig.add_subplot(111)
         ax.set_aspect('equal')
         for pipe in self.pipes:
-            pipe.Draw(ax)
+            pipe.plot(ax)
 
     def Export1D(self, name="Generated_Circuit", path="", size=1., index=0):
         """
@@ -308,8 +308,7 @@ class Circuit3D(Circuit):
 
     def plot(self):
         ax = self.pipes[0].plot()
-        print('ax', ax)
-        print(self.pipes[0])
+        # print(self.pipes[0])
         for pipe in self.pipes[1:]:
             pipe.plot(ax=ax)
 
@@ -342,7 +341,7 @@ class BoundaryCondition:
         self.active_points = self.points
         self.value = value
         self.heat_exchange = False
-        self.system_matrix = self.SystemMatrix()
+        # self.system_matrix = self.system_matrix()
         self.n_equations = 1
 
 class PressureCondition(BoundaryCondition):
@@ -352,7 +351,7 @@ class PressureCondition(BoundaryCondition):
     def __str__(self):
         return 'P={}'.format(round(self.value, 3))
         
-    def SystemMatrix(self):
+    def system_matrix(self):
         system_matrix = npy.array([[1, 0]])
         return system_matrix
 
@@ -378,7 +377,7 @@ class FlowCondition:
     def __str__(self):
         return 'Q={}'.format(round(self.value, 3))
 
-    def SystemMatrix(self):
+    def system_matrix(self):
         system_matrix = npy.array([[0, -1]])
         return system_matrix
 
@@ -479,7 +478,7 @@ class FluidicsResults:
                                                            pipe2block)
         return thermohydraulic_ciruit
 
-    def DisplaySolution(self, x3D=vm.X3D, y3D=vm.Y3D,
+    def plot(self, x3D=vm.X3D, y3D=vm.Y3D,
                         position=False,
                         color_map=None,
                         max_width=0.025):
@@ -500,18 +499,18 @@ class FluidicsResults:
 
         if position:
             # Points positions
-            graph_pos = {point : npy.array((npy.dot(point.vector, x3D.vector),
-                                            npy.dot(point.vector, y3D.vector)))\
+            graph_pos = {point : (point.dot(x3D),point.dot(y3D))
                          for point in list(self.circuit.graph.nodes)\
                          if graph.nodes[point]['node_type'] == 'point'}
 
             # Pipes positions : centroid of points
             for pipe in pipes:
-                coords = npy.asarray([point.vector for point in pipe.active_points])
-                length = coords.shape[0]
-                sum_x = npy.sum(coords[:, 0])
-                sum_y = npy.sum(coords[:, 1])
-                graph_pos[pipe] = npy.array((sum_x/length, sum_y/length))
+                # coords = [(point.x, point.y) for point in pipe.active_points]
+                length = len(pipe.active_points)
+                sum_x = sum([point.x for point in pipe.active_points])
+                sum_y = sum([point.y for point in pipe.active_points])
+                # sum_y = npy.sum(coords[:, 1])
+                graph_pos[pipe] = (sum_x/length, sum_y/length)
         else:
             graph_pos = nx.kamada_kawai_layout(self.circuit.graph)
 
