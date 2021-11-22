@@ -13,7 +13,7 @@ steps:
   - cd doc
   - make html
   - cd ../tests
-  - coverage run --source dessia_common ci_tests.py
+  - coverage run --source hydraulic ci_tests.py
   - coverage report
   - coverage json
   - python coverage.py 
