@@ -5,7 +5,7 @@
 """
 import numpy as npy
 import networkx as nx
-import dessia_common as dc
+import dessia_common.core as dcc
 from scipy.linalg import solve
 import matplotlib.pyplot as plt
 from matplotlib import patches
@@ -13,7 +13,7 @@ from hydraulic.fluids import water
 import volmdlr as vm
 
 
-class Node(dc.DessiaObject):
+class Node(dcc.DessiaObject):
     _standalone_in_db = False
     _eq_is_data_eq = False
     def __init__(self, name=''):
@@ -26,7 +26,7 @@ class Node(dc.DessiaObject):
         return self.name
 
 
-class Block(dc.DessiaObject):
+class Block(dcc.DessiaObject):
     _standalone_in_db = False
     
     def __init__(self, nodes, active_nodes, name=''):
