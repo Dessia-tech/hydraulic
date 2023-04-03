@@ -16,7 +16,7 @@ from hydraulic import fluids
 import volmdlr as vm
 import volmdlr.core as vmc
 from copy import copy
-import dessia_common as dc
+import dessia_common.core as dcc
 
 # Definition of equivalent L/D values
 # Lists in increasing order
@@ -30,9 +30,9 @@ enl_LD = [30, 20, 6.5, 0]
 ctr_rap = [1, 4/3, 2, 4]
 ctr_LD = [0, 6.5, 11, 15]
 
-class Circuit(dc.DessiaObject):
+class Circuit(dcc.PhysicalObject):
     """
-    General class for 2D/3D circuits
+    General class for 2D/3D circuits.
     """
     def __init__(self, points, pipes, boundary_conditions, fluid, name:str=''):
         self.points = points
@@ -228,22 +228,23 @@ class Circuit(dc.DessiaObject):
         turbulent = 0
         for pipe in self.pipes:
             Re = 2*pipe.flow/(self.fluid.nu*math.pi*pipe.radius)
-            if Re > 2000: # Laminar condition
+            if Re > 2000.:  # Laminar condition
                 turbulent = 1
                 print("Warning, flow is not laminar in {} with Re = {}".format(pipe, Re))
         if not turbulent:
             print("Flow is laminar in the circuit")
 
     def to_dict(self):
-        d = {'points' : [point.to_dict() for point in self.points]}
+        d = {'points': [point.to_dict() for point in self.points]}
         d['pipes'] = [pipe.to_dict() for pipe in self.pipes]
         d['boundary_conditions'] = [bc.to_dict() for bc in self.boundary_conditions]
         d['fluid'] = self.fluid.to_dict()
         return d
 
+
 class Circuit2D(Circuit):
-    def __init__(self, points, pipes, boundary_conditions, fluid, name:str=''):
-        Circuit.__init__(self, points, pipes, boundary_conditions, fluid,name=name)
+    def __init__(self, points, pipes, boundary_conditions, fluid, name: str = ''):
+        Circuit.__init__(self, points, pipes, boundary_conditions, fluid, name=name)
 
     def plot(self, ax=None):
         if ax is None:
@@ -269,7 +270,7 @@ class Circuit2D(Circuit):
             pts_index[point] = i+1
         n_pipes = len(self.pipes)
         added_elems = 0
-        physicals = [] # Index of lines for physical lines
+        physicals = []  # Index of lines for physical lines
         for j in range(n_pipes):
             pipe = self.pipes[j]
             [mess, phys] = pipe.gmsh_repr1d(j+1+added_elems, pts_index)
@@ -291,13 +292,14 @@ class Circuit2D(Circuit):
                 points_lim.append(point)
         return points_lim
 
+
 class Circuit3D(Circuit):
     """
-    3D circuit
-    
+    Defines a 3D circuit.
+
     """
-    
-    def __init__(self, points, pipes, boundary_conditions, fluid, name:str=''):
+
+    def __init__(self, points, pipes, boundary_conditions, fluid, name: str = ''):
         Circuit.__init__(self, points, pipes, boundary_conditions, fluid, name=name)
 
     def plot2d(self, x3D=vm.X3D, y3D=vm.Y3D, ax=None):
@@ -307,6 +309,7 @@ class Circuit3D(Circuit):
 
         for pipe in self.pipes:
             pipe.plot2d(x3D, y3D, ax=ax)
+        return ax
 
     def plot(self):
         ax = self.pipes[0].plot()
@@ -319,10 +322,7 @@ class Circuit3D(Circuit):
         for pipe in self.pipes:
             if hasattr(pipe, 'volmdlr_primitives'):
                 pipes_primitives.extend(pipe.volmdlr_primitives())
-        # model = vmc.VolumeModel(pipes_primitives, name=self.name)
         return pipes_primitives
-        # return model
-
 
     @classmethod
     def dict_to_object(cls, dict_):
@@ -337,9 +337,9 @@ class Circuit3D(Circuit):
         return circuit
 
 
-class BoundaryCondition(dc.DessiaObject):
+class BoundaryCondition(dcc.DessiaObject):
     _standalone_in_db = False
-    
+
     def __init__(self, point, value):
         self.points = [point]
         self.active_points = self.points
@@ -347,6 +347,7 @@ class BoundaryCondition(dc.DessiaObject):
         self.heat_exchange = False
         # self.system_matrix = self.system_matrix()
         self.n_equations = 1
+
 
 class PressureCondition(BoundaryCondition):
     def __init__(self, point, value):
@@ -374,7 +375,8 @@ class PressureCondition(BoundaryCondition):
         condition = cls(point, value)
         return condition
 
-class FlowCondition(dc.DessiaObject):
+
+class FlowCondition(dcc.DessiaObject):
     _standalone_in_db = True
     
     def __init__(self, point, value):
@@ -402,8 +404,7 @@ class FlowCondition(dc.DessiaObject):
         condition = cls(point, value)
         return condition
 
-class FluidicsResults(dc.DessiaObject):
-    
+class FluidicsResults(dcc.DessiaObject):
     
     def __init__(self, circuit, solution):
         self.circuit = circuit
@@ -444,12 +445,9 @@ class FluidicsResults(dc.DessiaObject):
                 flows_dict = [self.flows_dict[(pipe, point)] for point in pipe.active_points]
                 flows = [self.solution[j] for j in flows_dict]
                 input_indices = [index for index, flow in enumerate(flows) if flow >= 0]
-                input_nodes = [node for index, node in enumerate(block_nodes)\
-                               if index in input_indices]
-                output_nodes = [node for index, node in enumerate(block_nodes)\
-                                if index not in input_indices]
-                input_flows = [flow for index, flow in enumerate(flows)\
-                               if index in input_indices]
+                input_nodes = [node for index, node in enumerate(block_nodes) if index in input_indices]
+                output_nodes = [node for index, node in enumerate(block_nodes) if index not in input_indices]
+                input_flows = [flow for index, flow in enumerate(flows) if index in input_indices]
                 block = th.Junction(input_nodes,
                                     output_nodes,
                                     input_flows,
@@ -474,9 +472,9 @@ class FluidicsResults(dc.DessiaObject):
                     nodes.append(node)
             blocks.append(block)
 
-        interface_nodes = {'input' : [point2node[fip] for fip in fluid_input_points],
-                           'wall_nodes' : wall_nodes,
-                           'output' : [point2node[fop] for fop in fluid_output_points]}
+        interface_nodes = {'input': [point2node[fip] for fip in fluid_input_points],
+                           'wall_nodes': wall_nodes,
+                           'output': [point2node[fop] for fop in fluid_output_points]}
 
         thermal_circuit = th.Circuit(nodes, blocks)
         thermohydraulic_ciruit = th.ThermohydraulicCircuit(self.circuit,
@@ -486,10 +484,7 @@ class FluidicsResults(dc.DessiaObject):
                                                            pipe2block)
         return thermohydraulic_ciruit
 
-    def plot(self, x3D=vm.X3D, y3D=vm.Y3D,
-                        position=False,
-                        color_map=None,
-                        max_width=0.025):
+    def plot(self, x3D=vm.X3D, y3D=vm.Y3D, position=False, color_map=None, max_width=0.025):
         """
         Displays the solution : [pressure,flow rate]
         Numbers are displayed with the number of digits
@@ -501,13 +496,12 @@ class FluidicsResults(dc.DessiaObject):
 
         points = [point for point in graph.nodes if graph.nodes[point]['node_type'] == 'point']
         pipes = [pipe for pipe in graph.nodes if graph.nodes[pipe]['node_type'] == 'pipe']
-        pipe_points_couples = [(pipe, point) for pipe in pipes\
-                               for point in pipe.active_points]
+        pipe_points_couples = [(pipe, point) for pipe in pipes for point in pipe.active_points]
         flows = {}
 
         if position:
             # Points positions
-            graph_pos = {point : (point.dot(x3D),point.dot(y3D))
+            graph_pos = {point: (point.dot(x3D),point.dot(y3D))
                          for point in list(self.circuit.graph.nodes)\
                          if graph.nodes[point]['node_type'] == 'point'}
 
@@ -581,4 +575,3 @@ class FluidicsResults(dc.DessiaObject):
 
         ax.axis('equal')
         plt.colorbar(press_pts)
-    

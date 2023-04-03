@@ -56,8 +56,8 @@ circuit = hy.Circuit3D(points, pipes, boundary_conditions, water)
 circuit.plot()
 circuit.plot_graph()
 
-volume_model = circuit.volmdlr_volume_model()
-volume_model.babylonjs()
+# volume_model = circuit.volmdlr_volume_model()
+circuit.babylonjs()
 
 # Fluidics calculations
 fluidics_result = circuit.solve_fluidics()

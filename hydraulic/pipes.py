@@ -9,7 +9,7 @@ Created on Wed Oct 24 14:24:59 2018
 import math
 import numpy as npy
 import matplotlib.pyplot as plt
-import dessia_common as dc
+import dessia_common.core as dcc
 import volmdlr as vm
 import volmdlr.edges as vme
 import volmdlr.wires as vmw
@@ -30,7 +30,7 @@ enl_LD = [30, 20, 6.5, 0]
 ctr_rap = [1, 4/3, 2, 4]
 ctr_LD = [0, 6.5, 11, 15]
 
-class StraightPipe(dc.DessiaObject):
+class StraightPipe(dcc.DessiaObject):
     """
     Abstract Class
     Straight pipes linking 2 points
@@ -109,7 +109,7 @@ class StraightPipe3D(StraightPipe):
                                   name=self.name)]
 
 
-class SingularPipe(dc.DessiaObject):
+class SingularPipe(dcc.DessiaObject):
     """
     Other type of pipes linking 2 points
     """
@@ -192,12 +192,11 @@ class Bend3D(Bend):
         Bend.__init__(self, start_point, interior_point, end_point,
                       arc, diameter, heat_exchange, name)
 
-    def plot2d(self, x3D, y3D, ax=None):
+    def plot2d(self, x3d, y3d, ax=None):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-
-        self.arc.plot2d(x3D, y3D, ax=ax)
+        self.arc.plot2d(x3d=x3d, y3d=y3d, ax=ax)
         return ax
         
     def plot(self, ax=None):
@@ -333,7 +332,7 @@ class UserDefined(SingularPipe):
 
         vm.LineSegment3D(*self.points).plot2D(x3D, y3D, ax)
 
-class JunctionPipe(dc.DessiaObject):
+class JunctionPipe(dcc.DessiaObject):
     """
     Add pressure drop values
     junction linking 1 pipe to 2+ pipes
